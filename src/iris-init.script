@@ -1,0 +1,89 @@
+// ============================================================
+// Script d'initialisation IRIS - Lignes2Code Articles
+// Configure le namespace, charge les classes, 
+// crée l'application REST, installe WebTerminal
+// et démarre la production d'interopérabilité
+// ============================================================
+
+// Passer dans le namespace %SYS pour les opérations d'administration
+zn "%SYS"
+
+// Installer WebTerminal via ZPM (InterSystems Package Manager)
+Write "=== Installation de WebTerminal via ZPM ===", !
+zpm "install webterminal"
+
+// Créer l'utilisateur lignes2Code avec tous les droits
+Write "=== Création de l'utilisateur lignes2Code ===", !
+Set userProps("Name") = "lignes2Code"
+Set userProps("FullName") = "Lignes2Code Admin"
+Set userProps("Comment") = "Utilisateur administrateur Lignes2Code"
+Set userProps("Enabled") = 1
+Set userProps("PasswordNeverExpires") = 1
+Set userProps("ChangePassword") = 0
+Set userProps("Roles") = "%All"
+Set userProps("NameSpace") = "USER"
+Set userProps("Routine") = ""
+
+If ##class(Security.Users).Exists("lignes2Code") {
+    Write "L'utilisateur lignes2Code existe déjà, mise à jour...", !
+    Set sc = ##class(Security.Users).Modify("lignes2Code", .userProps)
+} Else {
+    Write "Création de l'utilisateur lignes2Code...", !
+    Set sc = ##class(Security.Users).Create("lignes2Code", .userProps, "@AQW2ZSXEDc")
+}
+
+If $$$ISERR(sc) {
+    Write "Erreur lors de la création de l'utilisateur : ", $System.Status.GetErrorText(sc), !
+} Else {
+    Write "Utilisateur lignes2Code créé avec succès (rôle %All)", !
+}
+
+// Passer dans le namespace USER
+zn "USER"
+
+// Charger et compiler toutes les classes du projet récursivement
+Write "=== Chargement des classes ObjectScript ===", !
+Do $System.OBJ.LoadDir("/home/irisowner/src/cls/", "ck", .err, 1)
+
+// Créer l'application web REST pour les articles
+Write "=== Configuration de l'application REST ===", !
+Set props("Name") = "/api/articles"
+Set props("NameSpace") = "USER"
+Set props("DispatchClass") = "Article.REST.Router"
+Set props("Enabled") = 1
+Set props("AutheEnabled") = 64
+Set props("Description") = "API REST pour la gestion des articles - Lignes2Code"
+Set props("CSPZENEnabled") = 1
+Set props("Resource") = ""
+
+// Vérifier si l'application existe déjà
+If ##class(Security.Applications).Exists("/api/articles") {
+    Write "L'application /api/articles existe déjà, mise à jour...", !
+    Set sc = ##class(Security.Applications).Modify("/api/articles", .props)
+} Else {
+    Write "Création de l'application /api/articles...", !
+    Set sc = ##class(Security.Applications).Create("/api/articles", .props)
+}
+
+If $$$ISERR(sc) {
+    Write "Erreur lors de la configuration de l'application REST : ", $System.Status.GetErrorText(sc), !
+} Else {
+    Write "Application REST /api/articles configurée avec succès", !
+}
+
+// Créer les dossiers pour l'interopérabilité s'ils n'existent pas
+Do ##class(%File).CreateDirectoryChain("/home/irisowner/data/input/")
+Do ##class(%File).CreateDirectoryChain("/home/irisowner/data/output/")
+
+// Démarrer la production d'interopérabilité
+Write "=== Démarrage de la production ===", !
+Set sc = ##class(Ens.Director).StartProduction("Article.Production.ArticleProduction")
+If $$$ISERR(sc) {
+    Write "Erreur lors du démarrage de la production : ", $System.Status.GetErrorText(sc), !
+} Else {
+    Write "Production démarrée avec succès !", !
+}
+
+Write "=== Initialisation terminée ===", !
+
+Halt

@@ -1,0 +1,23 @@
+[
+    {
+        "title": "Introduction à InterSystems IRIS",
+        "content": "InterSystems IRIS est une plateforme de données haute performance qui combine une base de données multimodèle, un moteur d'interopérabilité et des capacités analytiques.",
+        "author": "Lignes2Code",
+        "category": "technique",
+        "status": "published"
+    },
+    {
+        "title": "Docker et InterSystems IRIS",
+        "content": "Découvrez comment conteneuriser vos applications InterSystems IRIS avec Docker pour un déploiement simplifié et reproductible.",
+        "author": "Lignes2Code",
+        "category": "devops",
+        "status": "draft"
+    },
+    {
+        "title": "L'interopérabilité avec IRIS",
+        "content": "Les productions d'interopérabilité permettent de connecter des systèmes utilisant différents protocoles de communication et formats de messages.",
+        "author": "Lignes2Code",
+        "category": "technique",
+        "status": "published"
+    }
+]

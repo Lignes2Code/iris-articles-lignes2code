@@ -1,0 +1,30 @@
+services:
+  iris:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: iris-articles-lignes2code:latest
+    container_name: iris-articles
+    hostname: iris-articles
+    ports:
+      # Port du serveur web (Management Portal + REST API + WebTerminal)
+      - "52773:52773"
+      # Port superserveur IRIS
+      - "1972:1972"
+    volumes:
+      # Volume durable %SYS pour la persistance des données
+      - ./data/durable:/dur
+      # Dossier surveillé pour l'import des articles (interopérabilité)
+      - ./data/input:/home/irisowner/data/input
+      # Dossier de sortie pour les fichiers traités
+      - ./data/output:/home/irisowner/data/output
+    environment:
+      # Répertoire durable %SYS
+      - ISC_DATA_DIRECTORY=/dur/iris
+    # Capacité nécessaire pour les huge pages
+    cap_add:
+      - IPC_LOCK
+    # Redémarrage automatique sauf arrêt manuel
+    restart: unless-stopped
+    # Timeout de 30s pour l'arrêt gracieux d'IRIS
+    stop_grace_period: 30s

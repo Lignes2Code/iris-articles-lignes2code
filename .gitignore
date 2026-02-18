@@ -1,0 +1,20 @@
+# Données persistantes IRIS (durable %SYS)
+data/durable/
+
+# Fichiers traités
+data/output/*.json
+
+# Ne pas ignorer les exemples
+!data/sample-*.json
+
+# Git
+.git/
+
+# IDE
+.vscode/settings.json
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+[Startup]
+; Augmenter la mémoire pour les performances
+SystemMode=DEVELOPMENT
+
+[config]
+; Paramètres de configuration globaux
+MaxServerConn=64
+MaxServers=64
+
+[SQL]
+; Activer les résultats JSON natifs
+ECPSync=1
