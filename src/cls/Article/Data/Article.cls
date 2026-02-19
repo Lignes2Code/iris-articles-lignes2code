@@ -27,6 +27,21 @@ Property Status As %String(VALUELIST = ",draft,published,archived") [ InitialExp
 /// Source de l'article (rest, file, manual)
 Property Source As %String(MAXLEN = 50);
 
+/// Mapping JSON : noms de champs en minuscules (camelCase)
+XData BasicReference [ XMLNamespace = "http://www.intersystems.com/jsonmapping" ]
+{
+<Mapping xmlns="http://www.intersystems.com/jsonmapping">
+  <Property Name="Title" FieldName="title"/>
+  <Property Name="Content" FieldName="content"/>
+  <Property Name="Author" FieldName="author"/>
+  <Property Name="Category" FieldName="category"/>
+  <Property Name="DateCreated" FieldName="dateCreated"/>
+  <Property Name="DateModified" FieldName="dateModified"/>
+  <Property Name="Status" FieldName="status"/>
+  <Property Name="Source" FieldName="source"/>
+</Mapping>
+}
+
 /// Index sur le titre
 Index TitleIdx On Title;
 

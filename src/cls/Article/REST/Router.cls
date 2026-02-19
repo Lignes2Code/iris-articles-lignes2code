@@ -12,29 +12,29 @@ Parameter HandleCorsRequest = 1;
 XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 {
 <Routes>
+    <!-- Endpoint de santé -->
+    <Route Url="/health" Method="GET" Call="HealthCheck" />
+    
+    <!-- Recherche d'articles par catégorie (AVANT :id pour éviter conflit) -->
+    <Route Url="/articles/category/:category" Method="GET" Call="GetByCategory" />
+    
+    <!-- Recherche d'articles par statut (AVANT :id pour éviter conflit) -->
+    <Route Url="/articles/status/:status" Method="GET" Call="GetByStatus" />
+    
     <!-- Liste tous les articles -->
     <Route Url="/articles" Method="GET" Call="GetAllArticles" />
     
-    <!-- Récupère un article par ID -->
-    <Route Url="/articles/:id" Method="GET" Call="GetArticle" />
-    
     <!-- Crée un nouvel article -->
     <Route Url="/articles" Method="POST" Call="CreateArticle" />
+    
+    <!-- Récupère un article par ID -->
+    <Route Url="/articles/:id" Method="GET" Call="GetArticle" />
     
     <!-- Met à jour un article existant -->
     <Route Url="/articles/:id" Method="PUT" Call="UpdateArticle" />
     
     <!-- Supprime un article -->
     <Route Url="/articles/:id" Method="DELETE" Call="DeleteArticle" />
-    
-    <!-- Recherche d'articles par catégorie -->
-    <Route Url="/articles/category/:category" Method="GET" Call="GetByCategory" />
-    
-    <!-- Recherche d'articles par statut -->
-    <Route Url="/articles/status/:status" Method="GET" Call="GetByStatus" />
-    
-    <!-- Endpoint de santé -->
-    <Route Url="/health" Method="GET" Call="HealthCheck" />
 </Routes>
 }
 
@@ -96,7 +96,7 @@ ClassMethod GetArticle(pId As %String) As %Status
         
         Set article = ##class(Article.Data.Article).%OpenId(pId)
         Set json = {}
-        Set sc = article.%JSONExportToString(.jsonStr)
+        Set sc = article.%JSONExportToString(.jsonStr, "BasicReference")
         If $$$ISERR(sc) { Do ..ReportHttpStatusCode(500) Quit }
         
         // Ajouter l'ID manuellement
@@ -135,11 +135,11 @@ ClassMethod CreateArticle() As %Status
         }
         
         Set article = ##class(Article.Data.Article).%New()
-        Set sc = article.%JSONImport(jsonStr)
+        Set sc = article.%JSONImport(jsonStr, "BasicReference")
         If $$$ISERR(sc) {
             Do ..ReportHttpStatusCode(400)
             Set error = {}
-            Set error.error = "Données JSON invalides"
+            Set error.error = "Données JSON invalides : " _ $System.Status.GetErrorText(sc)
             Write error.%ToJSON()
             Return sc
         }
@@ -201,11 +201,11 @@ ClassMethod UpdateArticle(pId As %String) As %Status
         }
         
         Set article = ##class(Article.Data.Article).%OpenId(pId)
-        Set sc = article.%JSONImport(jsonStr)
+        Set sc = article.%JSONImport(jsonStr, "BasicReference")
         If $$$ISERR(sc) {
             Do ..ReportHttpStatusCode(400)
             Set error = {}
-            Set error.error = "Données JSON invalides"
+            Set error.error = "Données JSON invalides : " _ $System.Status.GetErrorText(sc)
             Write error.%ToJSON()
             Return sc
         }
