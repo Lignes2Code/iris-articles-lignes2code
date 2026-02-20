@@ -1,9 +1,10 @@
 /// Message de requête pour l'enregistrement d'un article via l'interopérabilité
+/// Utilise un stream pour supporter les gros payloads JSON avec images base64
 Class Article.Message.ArticleRequest Extends Ens.Request
 {
 
-/// Données JSON brutes de l'article
-Property JSONData As %String(MAXLEN = 10000);
+/// Données JSON brutes de l'article (stream pour éviter MAXSTRING avec les images base64)
+Property JSONData As %Stream.GlobalCharacter;
 
 /// Nom du fichier source
 Property SourceFileName As %String(MAXLEN = 500);

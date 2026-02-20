@@ -17,18 +17,26 @@ Method OnProcessInput(pInput As %Stream.Object, Output pOutput As %RegisteredObj
     Try {
         $$$LOGINFO("Fichier détecté : " _ pInput.Attributes("Filename"))
         
-        // Lire le contenu du fichier
-        Set jsonData = ""
-        While 'pInput.AtEnd {
-            Set jsonData = jsonData _ pInput.Read()
+        // Lire le contenu du fichier en UTF-8
+        If pInput.%IsA("%Stream.FileCharacter") || pInput.%IsA("%Stream.FileBinary") {
+            Set pInput.TranslateTable = "UTF8"
         }
         
-        $$$LOGINFO("Contenu du fichier : " _ $Extract(jsonData, 1, 200) _ "...")
+        // Log des premiers caractères pour debug
+        Set preview = pInput.Read(200)
+        Do pInput.Rewind()
+        $$$LOGINFO("Contenu du fichier (début) : " _ preview _ "...")
         
-        // Créer le message de requête
+        // Créer le message de requête avec stream
         Set request = ##class(Article.Message.ArticleRequest).%New()
-        Set request.JSONData = jsonData
         Set request.SourceFileName = pInput.Attributes("Filename")
+        
+        // Copier le stream d'entrée vers le stream du message (pas de MAXSTRING)
+        Set sc = request.JSONData.CopyFrom(pInput)
+        If $$$ISERR(sc) {
+            $$$LOGERROR("Erreur copie stream : " _ $System.Status.GetErrorText(sc))
+            Return sc
+        }
         
         // Envoyer le message à l'opération cible
         Set sc = ..SendRequestSync(..TargetConfigName, request, .response)

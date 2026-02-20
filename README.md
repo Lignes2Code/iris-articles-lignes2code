@@ -18,11 +18,17 @@ Projet InterSystems IRIS pour le stockage et l'exposition d'articles via un serv
 │  ┌──────────────┐                        │  Article.Data     │ │
 │  │  API REST    │───────────────────────>│  .Article         │ │
 │  │  /api/       │<───────────────────────│  (Persistant)     │ │
-│  │  articles    │                        └───────────────────┘ │
+│  │  articles    │                        └────────┬──────────┘ │
+│  └──────────────┘                                 │            │
+│                                                   │            │
+│  ┌──────────────┐                                 │            │
+│  │  Pages CSP   │─────────────────────────────────┘            │
+│  │  /web/       │  (Article.Web.Base, ArticleList,             │
+│  │  articles    │   ArticleView — %CSP.Page)                   │
 │  └──────────────┘                                              │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Management Portal (52773) │ WebTerminal │ REST API     │   │
+│  │  Portal (52773) │ WebTerminal │ REST API │ Pages CSP    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -62,6 +68,7 @@ docker compose ps
 | **Management Portal** | http://localhost:52773/csp/sys/UtilHome.csp | `_SYSTEM` / `SYS` |
 | **WebTerminal** | http://localhost:52773/terminal/ | `_SYSTEM` / `SYS` |
 | **API REST Health** | http://localhost:52773/api/articles/health | - |
+| **Pages Articles (CSP)** | http://localhost:52773/web/articles/Article.Web.ArticleList.cls | - |
 
 > **Note :** Au premier accès, IRIS demandera de changer le mot de passe par défaut (`SYS`).
 
@@ -79,6 +86,13 @@ docker compose ps
 | `DELETE` | `/api/articles/articles/:id` | Supprimer un article |
 | `GET` | `/api/articles/articles/category/:cat` | Articles par catégorie |
 | `GET` | `/api/articles/articles/status/:status` | Articles par statut |
+
+### Pages Web CSP
+
+| URL | Description |
+|-----|-------------|
+| `/web/articles/Article.Web.ArticleList.cls` | Liste de tous les articles (HTML) |
+| `/web/articles/Article.Web.ArticleView.cls?id=1` | Détail d'un article (HTML) |
 
 ### Exemples cURL
 
@@ -197,8 +211,12 @@ iris-articles-lignes2code/
         └── Article/
             ├── Data/
             │   └── Article.cls           # Classe persistante Article
+            ├── Web/
+            │   ├── Base.cls              # Classe CSP abstraite (CSS, header, footer)
+            │   ├── ArticleList.cls       # Page CSP : liste des articles
+            │   └── ArticleView.cls       # Page CSP : détail d'un article
             ├── REST/
-            │   └── Router.cls            # Routeur REST (dispatch)
+            │   └── Router.cls            # Routeur REST (JSON uniquement)
             ├── Message/
             │   ├── ArticleRequest.cls     # Message de requête
             │   └── ArticleResponse.cls    # Message de réponse

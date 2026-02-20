@@ -1,0 +1,24 @@
+{
+    "title": "Premier article de test",
+    "content": "<h1>Premier article de test</h1><p>Ceci est le contenu du premier article importé via le dossier surveillé par l'interopérabilité IRIS.</p><p>Voici une image intégrée :</p><img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' alt='pixel test' />",
+    "author": "Lignes2Code",
+    "category": "test",
+    "status": "published",
+    "thumbnail": {
+        "name": "vignette-article-test.jpg",
+        "mimeType": "image/jpeg",
+        "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+    },
+    "images": [
+        {
+            "name": "iris-logo.png",
+            "mimeType": "image/png",
+            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        },
+        {
+            "name": "architecture-iris.png",
+            "mimeType": "image/png",
+            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        }
+    ]
+}

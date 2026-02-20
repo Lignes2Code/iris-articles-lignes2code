@@ -1,0 +1,112 @@
+/// Page CSP affichant le détail d'un article
+/// Accessible via /web/articles/Article.Web.ArticleView.cls?id=123
+Class Article.Web.ArticleView Extends Article.Web.Base
+{
+
+ClassMethod OnPage() As %Status
+{
+    Set sc = $$$OK
+    Try {
+        // Récupérer l'ID depuis les paramètres de requête
+        Set pId = %request.Get("id")
+
+        // Cas : pas d'ID fourni
+        If pId = "" {
+            Do ..DrawHead("Article non trouv&eacute;")
+            Set urlList = ..Link("Article.Web.ArticleList.cls")
+            &html<<body style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f2f5;">
+<div class="msg"><h1>400</h1><p>Param&egrave;tre 'id' manquant</p>
+<p><a href="#(urlList)#">&#8592; Retour &agrave; la liste</a></p></div>
+</body></html>>
+            Return sc
+        }
+
+        // Cas : article inexistant
+        If '##class(Article.Data.Article).%ExistsId(pId) {
+            Set %response.Status = "404 Not Found"
+            Do ..DrawHead("Article non trouv&eacute;")
+            Set urlList = ..Link("Article.Web.ArticleList.cls")
+            &html<<body style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f2f5;">
+<div class="msg"><h1>404</h1><p>Article ##(pId)# non trouv&eacute;</p>
+<p><a href="#(urlList)#">&#8592; Retour &agrave; la liste</a></p></div>
+</body></html>>
+            Return sc
+        }
+
+        Set article = ##class(Article.Data.Article).%OpenId(pId)
+        Do ..DrawHead(article.Title)
+
+        // Hero / Vignette
+        &html<<div class="hero">>
+        If $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
+            Write "<img "
+            Write "alt=""" _ $ZConvert(article.Title, "O", "HTML") _ """ "
+            Write "src="""
+            Do article.Thumbnail.WriteDataURI()
+            Write """ />"
+        }
+        Set badgeClass = "badge-" _ article.Status
+        &html<<div class="hero-overlay">
+<h1>#($ZConvert(article.Title, "O", "HTML"))#</h1>
+<div class="meta">
+<span>&#9998; #($ZConvert(article.Author, "O", "HTML"))#</span>
+<span>&#128197; #($Piece(article.DateCreated, " ", 1))#</span>
+<span class="badge #(badgeClass)#">#($ZConvert(article.Status, "O", "HTML"))#</span>
+</div>
+</div>
+</div>>
+
+        Set urlList = ..Link("Article.Web.ArticleList.cls")
+        &html<<div class="container">
+<a class="back" href="#(urlList)#">&#8592; Retour aux articles</a>
+<div class="content">>
+        // Écrire le contenu depuis le stream par morceaux (évite MAXSTRING)
+        If $IsObject(article.Content) && (article.Content.Size > 0) {
+            Do article.Content.Rewind()
+            While 'article.Content.AtEnd {
+                Write article.Content.Read(32000)
+            }
+        }
+        &html<</div>>
+
+        // Galerie d'images
+        If article.Images.Count() > 0 {
+            &html<<div class="content gallery">
+<h3>&#128247; Images de l'article (#(article.Images.Count())#)</h3>
+<div class="gallery-grid">>
+            For i = 1:1:article.Images.Count() {
+                Set img = article.Images.GetAt(i)
+                If $IsObject(img) && (img.Base64Data.Size > 0) {
+                    Do img.WriteImgTag()
+                }
+            }
+            &html<</div>
+</div>>
+        }
+
+        // Métadonnées
+        &html<<div class="content">
+<h3>&#128203; Informations</h3>
+<table class="info-table">
+<tr><td>ID</td><td>#(pId)#</td></tr>
+<tr><td>Cat&eacute;gorie</td><td>#($ZConvert(article.Category, "O", "HTML"))#</td></tr>
+<tr><td>Source</td><td>#($ZConvert(article.Source, "O", "HTML"))#</td></tr>
+<tr><td>Cr&eacute;&eacute; le</td><td>#(article.DateCreated)#</td></tr>>
+        If article.DateModified '= "" {
+            &html<<tr><td>Modifi&eacute; le</td><td>#(article.DateModified)#</td></tr>>
+        }
+        &html<<tr><td>Images</td><td>#(article.Images.Count())# image(s)</td></tr>
+</table>
+</div>
+</div>>
+
+        Do ..DrawFooter()
+    }
+    Catch ex {
+        Set sc = ex.AsStatus()
+        &html<<html><body><h1>Erreur</h1><p>#($ZConvert(ex.DisplayString(), "O", "HTML"))#</p></body></html>>
+    }
+    Return sc
+}
+
+}

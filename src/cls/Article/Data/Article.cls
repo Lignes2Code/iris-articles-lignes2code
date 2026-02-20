@@ -6,8 +6,8 @@ Class Article.Data.Article Extends (%Persistent, %JSON.Adaptor, %Populate)
 /// Titre de l'article
 Property Title As %String(MAXLEN = 500) [ Required ];
 
-/// Contenu de l'article
-Property Content As %String(MAXLEN = 10000);
+/// Contenu de l'article (texte enrichi HTML, stream pour supporter les images base64 inline volumineuses)
+Property Content As %Stream.GlobalCharacter;
 
 /// Auteur de l'article
 Property Author As %String(MAXLEN = 200);
@@ -27,10 +27,25 @@ Property Status As %String(VALUELIST = ",draft,published,archived") [ InitialExp
 /// Source de l'article (rest, file, manual)
 Property Source As %String(MAXLEN = 50);
 
+/// Identifiant calculé pour l'export JSON (inclut l'ID dans la sérialisation)
+Property ArticleId As %Integer [ Calculated, Transient ];
+
+Method ArticleIdGet() As %Integer
+{
+    Return ..%Id()
+}
+
+/// Vignette de l'article (image d'en-tête en buffer base64)
+Property Thumbnail As Article.Data.ArticleImage;
+
+/// Liste des images contenues dans l'article (buffers base64)
+Property Images As list Of Article.Data.ArticleImage;
+
 /// Mapping JSON : noms de champs en minuscules (camelCase)
 XData BasicReference [ XMLNamespace = "http://www.intersystems.com/jsonmapping" ]
 {
 <Mapping xmlns="http://www.intersystems.com/jsonmapping">
+  <Property Name="ArticleId" FieldName="id" Include="OUTPUTONLY"/>
   <Property Name="Title" FieldName="title"/>
   <Property Name="Content" FieldName="content"/>
   <Property Name="Author" FieldName="author"/>
@@ -39,7 +54,78 @@ XData BasicReference [ XMLNamespace = "http://www.intersystems.com/jsonmapping" 
   <Property Name="DateModified" FieldName="dateModified"/>
   <Property Name="Status" FieldName="status"/>
   <Property Name="Source" FieldName="source"/>
+  <Property Name="Thumbnail" FieldName="thumbnail" Mapping="BasicReference"/>
+  <Property Name="Images" FieldName="images" Mapping="BasicReference"/>
 </Mapping>
+}
+
+/// Mapping JSON allégé pour les listes (sans Content ni Images)
+XData ListReference [ XMLNamespace = "http://www.intersystems.com/jsonmapping" ]
+{
+<Mapping xmlns="http://www.intersystems.com/jsonmapping">
+  <Property Name="ArticleId" FieldName="id" Include="OUTPUTONLY"/>
+  <Property Name="Title" FieldName="title"/>
+  <Property Name="Author" FieldName="author"/>
+  <Property Name="Category" FieldName="category"/>
+  <Property Name="DateCreated" FieldName="dateCreated"/>
+  <Property Name="DateModified" FieldName="dateModified"/>
+  <Property Name="Status" FieldName="status"/>
+  <Property Name="Source" FieldName="source"/>
+</Mapping>
+}
+
+/// Import stream-safe depuis un %DynamicObject (évite MAXSTRING avec %JSONImport)
+/// Utilise %Get(key,,"stream") pour content et les données base64 des images
+Method ImportFromDynObj(pJson As %DynamicObject) As %Status
+{
+    Set sc = $$$OK
+    Try {
+        If pJson.%IsDefined("title") Set ..Title = pJson.%Get("title")
+        If pJson.%IsDefined("author") Set ..Author = pJson.%Get("author")
+        If pJson.%IsDefined("category") Set ..Category = pJson.%Get("category")
+        If pJson.%IsDefined("status") Set ..Status = pJson.%Get("status")
+        If pJson.%IsDefined("source") Set ..Source = pJson.%Get("source")
+        
+        // Content comme stream (peut être très volumineux avec images base64 inline)
+        If pJson.%IsDefined("content") {
+            Set contentStream = pJson.%Get("content",,"stream")
+            If $IsObject(contentStream) {
+                Do contentStream.Rewind()
+                Do ..Content.CopyFrom(contentStream)
+            }
+        }
+        
+        // Thumbnail
+        If pJson.%IsDefined("thumbnail") {
+            Set thumbJson = pJson.%Get("thumbnail")
+            If $IsObject(thumbJson) {
+                Set thumb = ##class(Article.Data.ArticleImage).%New()
+                Set sc = thumb.ImportFromDynObj(thumbJson)
+                If $$$ISERR(sc) Return sc
+                Set ..Thumbnail = thumb
+            }
+        }
+        
+        // Images array
+        If pJson.%IsDefined("images") {
+            Set imagesArray = pJson.%Get("images")
+            If $IsObject(imagesArray) {
+                Set iter = imagesArray.%GetIterator()
+                While iter.%GetNext(.key, .imgJson) {
+                    If $IsObject(imgJson) {
+                        Set img = ##class(Article.Data.ArticleImage).%New()
+                        Set sc = img.ImportFromDynObj(imgJson)
+                        If $$$ISERR(sc) Continue
+                        Do ..Images.Insert(img)
+                    }
+                }
+            }
+        }
+    }
+    Catch ex {
+        Set sc = ex.AsStatus()
+    }
+    Return sc
 }
 
 /// Index sur le titre
@@ -63,9 +149,6 @@ Storage Default
 <Value name="2">
 <Value>Title</Value>
 </Value>
-<Value name="3">
-<Value>Content</Value>
-</Value>
 <Value name="4">
 <Value>Author</Value>
 </Value>
@@ -83,6 +166,12 @@ Storage Default
 </Value>
 <Value name="9">
 <Value>Source</Value>
+</Value>
+<Value name="10">
+<Value>Thumbnail</Value>
+</Value>
+<Value name="11">
+<Value>Images</Value>
 </Value>
 </Data>
 <DataLocation>^Article.Data.ArticleD</DataLocation>

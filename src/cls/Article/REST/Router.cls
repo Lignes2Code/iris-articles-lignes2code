@@ -43,7 +43,7 @@ ClassMethod GetAllArticles() As %Status
 {
     Set sc = $$$OK
     Try {
-        Set sql = "SELECT ID, Title, Author, Category, Status, DateCreated, DateModified, Source FROM Article_Data.Article ORDER BY DateCreated DESC"
+        Set sql = "SELECT ID FROM Article_Data.Article ORDER BY DateCreated DESC"
         Set stmt = ##class(%SQL.Statement).%New()
         Set sc = stmt.%Prepare(sql)
         If $$$ISERR(sc) { Do ..ReportHttpStatusCode(500) Quit }
@@ -52,16 +52,14 @@ ClassMethod GetAllArticles() As %Status
         Set articles = []
         
         While rs.%Next() {
-            Set article = {}
-            Set article.id = rs.%Get("ID")
-            Set article.title = rs.%Get("Title")
-            Set article.author = rs.%Get("Author")
-            Set article.category = rs.%Get("Category")
-            Set article.status = rs.%Get("Status")
-            Set article.dateCreated = rs.%Get("DateCreated")
-            Set article.dateModified = rs.%Get("DateModified")
-            Set article.source = rs.%Get("Source")
-            Do articles.%Push(article)
+            Set articleObj = ##class(Article.Data.Article).%OpenId(rs.%Get("ID"))
+            If $IsObject(articleObj) {
+                Set sc = articleObj.%JSONExportToString(.jsonStr, "ListReference")
+                If $$$ISOK(sc) {
+                    Set articleJson = {}.%FromJSON(jsonStr)
+                    Do articles.%Push(articleJson)
+                }
+            }
         }
         
         Set response = {}
@@ -95,15 +93,15 @@ ClassMethod GetArticle(pId As %String) As %Status
         }
         
         Set article = ##class(Article.Data.Article).%OpenId(pId)
-        Set json = {}
-        Set sc = article.%JSONExportToString(.jsonStr, "BasicReference")
+        // Export en stream pour supporter les gros contenus avec images base64
+        Set stream = ##class(%Stream.TmpCharacter).%New()
+        Set sc = article.%JSONExportToStream(.stream, "BasicReference")
         If $$$ISERR(sc) { Do ..ReportHttpStatusCode(500) Quit }
         
-        // Ajouter l'ID manuellement
-        Set jsonObj = {}.%FromJSON(jsonStr)
-        Set jsonObj.id = pId
-        
-        Write jsonObj.%ToJSON()
+        Do stream.Rewind()
+        While 'stream.AtEnd {
+            Write stream.Read(32000)
+        }
     }
     Catch ex {
         Set sc = ex.AsStatus()
@@ -129,13 +127,11 @@ ClassMethod CreateArticle() As %Status
             Return sc
         }
         
-        Set jsonStr = ""
-        While 'body.AtEnd {
-            Set jsonStr = jsonStr _ body.Read()
-        }
+        // Parser le JSON depuis le stream (évite MAXSTRING)
+        Set jsonObj = ##class(%DynamicObject).%FromJSON(body)
         
         Set article = ##class(Article.Data.Article).%New()
-        Set sc = article.%JSONImport(jsonStr, "BasicReference")
+        Set sc = article.ImportFromDynObj(jsonObj)
         If $$$ISERR(sc) {
             Do ..ReportHttpStatusCode(400)
             Set error = {}
@@ -195,13 +191,11 @@ ClassMethod UpdateArticle(pId As %String) As %Status
             Return sc
         }
         
-        Set jsonStr = ""
-        While 'body.AtEnd {
-            Set jsonStr = jsonStr _ body.Read()
-        }
+        // Parser le JSON depuis le stream
+        Set jsonObj = ##class(%DynamicObject).%FromJSON(body)
         
         Set article = ##class(Article.Data.Article).%OpenId(pId)
-        Set sc = article.%JSONImport(jsonStr, "BasicReference")
+        Set sc = article.ImportFromDynObj(jsonObj)
         If $$$ISERR(sc) {
             Do ..ReportHttpStatusCode(400)
             Set error = {}
@@ -278,7 +272,7 @@ ClassMethod GetByCategory(pCategory As %String) As %Status
 {
     Set sc = $$$OK
     Try {
-        Set sql = "SELECT ID, Title, Author, Category, Status, DateCreated, DateModified, Source FROM Article_Data.Article WHERE Category = ? ORDER BY DateCreated DESC"
+        Set sql = "SELECT ID FROM Article_Data.Article WHERE Category = ? ORDER BY DateCreated DESC"
         Set stmt = ##class(%SQL.Statement).%New()
         Set sc = stmt.%Prepare(sql)
         If $$$ISERR(sc) { Do ..ReportHttpStatusCode(500) Quit }
@@ -287,16 +281,14 @@ ClassMethod GetByCategory(pCategory As %String) As %Status
         Set articles = []
         
         While rs.%Next() {
-            Set article = {}
-            Set article.id = rs.%Get("ID")
-            Set article.title = rs.%Get("Title")
-            Set article.author = rs.%Get("Author")
-            Set article.category = rs.%Get("Category")
-            Set article.status = rs.%Get("Status")
-            Set article.dateCreated = rs.%Get("DateCreated")
-            Set article.dateModified = rs.%Get("DateModified")
-            Set article.source = rs.%Get("Source")
-            Do articles.%Push(article)
+            Set articleObj = ##class(Article.Data.Article).%OpenId(rs.%Get("ID"))
+            If $IsObject(articleObj) {
+                Set sc = articleObj.%JSONExportToString(.jsonStr, "ListReference")
+                If $$$ISOK(sc) {
+                    Set articleJson = {}.%FromJSON(jsonStr)
+                    Do articles.%Push(articleJson)
+                }
+            }
         }
         
         Set response = {}
@@ -321,7 +313,7 @@ ClassMethod GetByStatus(pStatus As %String) As %Status
 {
     Set sc = $$$OK
     Try {
-        Set sql = "SELECT ID, Title, Author, Category, Status, DateCreated, DateModified, Source FROM Article_Data.Article WHERE Status = ? ORDER BY DateCreated DESC"
+        Set sql = "SELECT ID FROM Article_Data.Article WHERE Status = ? ORDER BY DateCreated DESC"
         Set stmt = ##class(%SQL.Statement).%New()
         Set sc = stmt.%Prepare(sql)
         If $$$ISERR(sc) { Do ..ReportHttpStatusCode(500) Quit }
@@ -330,16 +322,14 @@ ClassMethod GetByStatus(pStatus As %String) As %Status
         Set articles = []
         
         While rs.%Next() {
-            Set article = {}
-            Set article.id = rs.%Get("ID")
-            Set article.title = rs.%Get("Title")
-            Set article.author = rs.%Get("Author")
-            Set article.category = rs.%Get("Category")
-            Set article.status = rs.%Get("Status")
-            Set article.dateCreated = rs.%Get("DateCreated")
-            Set article.dateModified = rs.%Get("DateModified")
-            Set article.source = rs.%Get("Source")
-            Do articles.%Push(article)
+            Set articleObj = ##class(Article.Data.Article).%OpenId(rs.%Get("ID"))
+            If $IsObject(articleObj) {
+                Set sc = articleObj.%JSONExportToString(.jsonStr, "ListReference")
+                If $$$ISOK(sc) {
+                    Set articleJson = {}.%FromJSON(jsonStr)
+                    Do articles.%Push(articleJson)
+                }
+            }
         }
         
         Set response = {}

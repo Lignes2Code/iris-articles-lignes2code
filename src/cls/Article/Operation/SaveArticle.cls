@@ -6,6 +6,7 @@ Class Article.Operation.SaveArticle Extends Ens.BusinessOperation
 Parameter INVOCATION = "Queue";
 
 /// Traitement du message de requête ArticleRequest
+/// JSONData est maintenant un %Stream.GlobalCharacter pour supporter les gros payloads
 Method SaveArticleFromFile(pRequest As Article.Message.ArticleRequest, Output pResponse As Article.Message.ArticleResponse) As %Status
 {
     Set sc = $$$OK
@@ -14,14 +15,16 @@ Method SaveArticleFromFile(pRequest As Article.Message.ArticleRequest, Output pR
     Try {
         $$$LOGINFO("Traitement de l'article depuis le fichier : " _ pRequest.SourceFileName)
         
-        Set jsonData = pRequest.JSONData
+        // Le JSONData est un stream - rembobiner avant de lire
+        Do pRequest.JSONData.Rewind()
         
-        // Vérifier si c'est un tableau JSON (plusieurs articles)
-        Set firstChar = $ZStrip($Extract(jsonData, 1, 1), "<>W")
+        // Détecter si c'est un tableau ou un objet en lisant le premier caractère
+        Set firstChar = $ZStrip(pRequest.JSONData.Read(1), "<>W")
+        Do pRequest.JSONData.Rewind()
         
         If firstChar = "[" {
-            // Tableau d'articles
-            Set array = [].%FromJSON(jsonData)
+            // Tableau d'articles - parser depuis le stream
+            Set array = [].%FromJSON(pRequest.JSONData)
             Set iter = array.%GetIterator()
             Set count = 0
             Set ids = ""
@@ -40,8 +43,8 @@ Method SaveArticleFromFile(pRequest As Article.Message.ArticleRequest, Output pR
             Set pResponse.ArticleId = ids
             Set pResponse.StatusMessage = count _ " article(s) enregistré(s) depuis " _ pRequest.SourceFileName
         } Else {
-            // Article unique
-            Set articleJson = {}.%FromJSON(jsonData)
+            // Article unique - parser depuis le stream
+            Set articleJson = {}.%FromJSON(pRequest.JSONData)
             Set sc = ..SaveOneArticle(articleJson, .articleId)
             
             If $$$ISERR(sc) {
@@ -67,6 +70,7 @@ Method SaveArticleFromFile(pRequest As Article.Message.ArticleRequest, Output pR
 }
 
 /// Sauvegarde un article unique à partir d'un objet JSON dynamique
+/// Import 100% manuel via ImportFromDynObj (pas de %JSONImport → pas de MAXSTRING)
 Method SaveOneArticle(pJson As %DynamicObject, Output pId As %String) As %Status
 {
     Set sc = $$$OK
@@ -75,25 +79,26 @@ Method SaveOneArticle(pJson As %DynamicObject, Output pId As %String) As %Status
     Try {
         Set article = ##class(Article.Data.Article).%New()
         
-        // Mapper les propriétés JSON vers l'objet Article
-        If pJson.%IsDefined("title") Set article.Title = pJson.title
-        If pJson.%IsDefined("content") Set article.Content = pJson.content
-        If pJson.%IsDefined("author") Set article.Author = pJson.author
-        If pJson.%IsDefined("category") Set article.Category = pJson.category
-        If pJson.%IsDefined("status") {
-            Set article.Status = pJson.status
-        } Else {
-            Set article.Status = "draft"
+        // Import stream-safe : aucun %JSONImport, aucun %GetNext sur les gros champs
+        Set sc = article.ImportFromDynObj(pJson)
+        If $$$ISERR(sc) {
+            $$$LOGERROR("Erreur lors de l'import : " _ $System.Status.GetErrorText(sc))
+            Return sc
         }
         
+        // Forcer la source et les dates
         Set article.Source = "file"
         Set article.DateCreated = $ZDateTime($Horolog, 3)
         Set article.DateModified = article.DateCreated
+        
+        // Si le statut n'est pas défini, mettre en brouillon
+        If article.Status = "" Set article.Status = "draft"
         
         Set sc = article.%Save()
         If $$$ISERR(sc) Return sc
         
         Set pId = article.%Id()
+        $$$LOGINFO("Article enregistré ID=" _ pId _ " avec " _ article.Images.Count() _ " image(s)")
     }
     Catch ex {
         Set sc = ex.AsStatus()

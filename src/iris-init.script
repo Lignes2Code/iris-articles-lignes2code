@@ -9,8 +9,11 @@ set prop("Enabled")=1
 set prop("AutheEnabled")=48
 do ##class(Security.Services).Modify("%Service_CallIn",.prop)
 
-// Installer la locale française
-Set status = ##class(Config.NLS.Locales).Install("fraw")
+// Installer la locale française UTF-8
+Set status = ##class(Config.NLS.Locales).Install("frew")
+
+// Configurer la locale par défaut en UTF-8
+Do ##class(Config.NLS.Locales).SetCurrent("frew")
 
 // Charger WebTerminal
 do $system.OBJ.Load("/tmp/WebTerminal-v4.9.5.xml","ck")
@@ -36,6 +39,27 @@ If ##class(Security.Applications).Exists(appName) {
     Set props("Type") = 2
     Do ##class(Security.Applications).Create(appName, .props)
     Write "Application web /api/articles créée",!
+}
+
+// Configurer l'application web CSP pour les pages HTML
+Set webAppName = "/web/articles"
+If '##class(Security.Applications).Exists(webAppName) {
+    Kill webProps
+    Set webProps("NameSpace") = "USER"
+    Set webProps("Enabled") = 1
+    Set webProps("AutheEnabled") = 64
+    Set webProps("MatchRoles") = ":%All"
+    Set webProps("Resource") = ""
+    Set webProps("ServeFiles") = 1
+    Set webProps("IsNameSpaceDefault") = 0
+    Do ##class(Security.Applications).Create(webAppName, .webProps)
+    Write "Application web /web/articles créée (CSP)",!
+} Else {
+    Do ##class(Security.Applications).Get(webAppName, .webProps)
+    Set webProps("MatchRoles") = ":%All"
+    Set webProps("AutheEnabled") = 64
+    Do ##class(Security.Applications).Modify(webAppName, .webProps)
+    Write "Application web /web/articles configurée (CSP)",!
 }
 
 // Basculer sur le namespace USER
