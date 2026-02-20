@@ -57,8 +57,13 @@ ClassMethod OnPage() As %Status
 </div>>
 
         Set urlList = ..Link("Article.Web.ArticleList.cls")
+        Set urlEditParms("id") = pId
+        Set urlEdit = ..Link("Article.Web.ArticleForm.cls", .urlEditParms)
         &html<<div class="container">
+<div class="view-actions">
 <a class="back" href="#(urlList)#">&#8592; Retour aux articles</a>
+<a class="btn btn-edit" href="#(urlEdit)#">&#9998; Modifier cet article</a>
+</div>
 <div class="content">>
         // Écrire le contenu depuis le stream par morceaux (évite MAXSTRING)
         If $IsObject(article.Content) && (article.Content.Size > 0) {

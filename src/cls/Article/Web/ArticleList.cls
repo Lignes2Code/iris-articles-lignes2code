@@ -35,6 +35,7 @@ ClassMethod OnPage() As %Status
             // URL vers la page détail via Link()
             Set urlParms("id") = id
             Set viewURL = ..Link("Article.Web.ArticleView.cls", .urlParms)
+            Set editURL = ..Link("Article.Web.ArticleForm.cls", .urlParms)
 
             // Préparer les valeurs HTML-safe
             Set badgeClass = "badge-" _ article.Status
@@ -60,6 +61,7 @@ ClassMethod OnPage() As %Status
             If article.Category '= "" {
                 &html<<div class="meta"><span>&#128193; #($ZConvert(article.Category, "O", "HTML"))#</span></div>>
             }
+            &html<<div class="card-actions"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a></div>>
             &html<</div>
 </div>>
         }
