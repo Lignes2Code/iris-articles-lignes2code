@@ -98,6 +98,8 @@ Method SaveOneArticle(pJson As %DynamicObject, Output pId As %String) As %Status
         If $$$ISERR(sc) Return sc
         
         Set pId = article.%Id()
+        // Notifier les pages web d'un changement (polling)
+        Set ^Article.LastChange = $ZDateTime($Horolog, 3, 1)
         $$$LOGINFO("Article enregistré ID=" _ pId _ " avec " _ article.Images.Count() _ " image(s)")
     }
     Catch ex {

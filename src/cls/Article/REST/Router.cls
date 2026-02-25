@@ -25,6 +25,9 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
     <!-- Endpoint de santé -->
     <Route Url="/health" Method="GET" Call="HealthCheck" />
     
+    <!-- Endpoint de détection des changements (polling) -->
+    <Route Url="/articles/changes" Method="GET" Call="GetChanges" />
+    
     <!-- Recherche d'articles par catégorie (AVANT :id pour éviter conflit) -->
     <Route Url="/articles/category/:category" Method="GET" Call="GetByCategory" />
     
@@ -429,6 +432,8 @@ ClassMethod CreateArticle() As %Status
         
         // Retourner l'article complet (bonne pratique REST)
         Do ..ReportHttpStatusCode(201)
+        // Notifier les pages web d'un changement
+        Set ^Article.LastChange = $ZDateTime($Horolog, 3, 1)
         Return ..WriteArticleAsStream(article)
     }
     Catch ex {
@@ -469,6 +474,9 @@ ClassMethod UpdateArticle(pId As %String) As %Status
             Return ..ReportError(500, "Erreur lors de la mise à jour", "SAVE_ERROR")
         }
         
+        // Notifier les pages web d'un changement
+        Set ^Article.LastChange = $ZDateTime($Horolog, 3, 1)
+        
         Set response = {}
         Set response.id = +pId
         Set response.message = "Article mis à jour avec succès"
@@ -492,6 +500,9 @@ ClassMethod DeleteArticle(pId As %String) As %Status
         If $$$ISERR(sc) {
             Return ..ReportError(500, "Erreur lors de la suppression", "DELETE_ERROR")
         }
+        
+        // Notifier les pages web d'un changement
+        Set ^Article.LastChange = $ZDateTime($Horolog, 3, 1)
         
         Set response = {}
         Set response.id = +pId
@@ -524,6 +535,27 @@ ClassMethod HealthCheck() As %Status
     Set response.service = "Articles API - Lignes2Code"
     Set response.timestamp = $ZDateTime($Horolog, 3)
     Set response.version = "1.1.0"
+    Write response.%ToJSON()
+    Return $$$OK
+}
+
+/// GET /articles/changes - Retourne le timestamp du dernier changement (polling léger)
+/// Utilisé par les pages web pour détecter les nouveaux articles sans recharger
+ClassMethod GetChanges() As %Status
+{
+    Set response = {}
+    Set response.lastChange = $Get(^Article.LastChange, "")
+    // Compter le total d'articles
+    Set stmt = ##class(%SQL.Statement).%New()
+    Set sc = stmt.%Prepare("SELECT COUNT(*) As total FROM Article_Data.Article")
+    If $$$ISOK(sc) {
+        Set rs = stmt.%Execute()
+        If rs.%Next() {
+            Set response.total = +rs.%Get("total")
+        }
+    } Else {
+        Set response.total = 0
+    }
     Write response.%ToJSON()
     Return $$$OK
 }

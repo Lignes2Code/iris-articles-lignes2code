@@ -75,6 +75,73 @@ ClassMethod OnPage() As %Status
 
         &html<</div>>
         Do ..DrawFooter()
+
+        // Script de polling pour mise à jour dynamique (toutes les 3s)
+        Write "<script>", !
+        Write "(function() {", !
+        Write "    var lastChange = '';", !
+        Write "    var pollInterval = 3000;", !
+        Write "    function pollChanges() {", !
+        Write "        fetch('/api/articles/articles/changes')", !
+        Write "        .then(function(r) { return r.json(); })", !
+        Write "        .then(function(data) {", !
+        Write "            if (lastChange === '') { lastChange = data.lastChange || ''; return; }", !
+        Write "            if (data.lastChange && data.lastChange !== lastChange) {", !
+        Write "                lastChange = data.lastChange;", !
+        Write "                refreshArticles();", !
+        Write "            }", !
+        Write "        })", !
+        Write "        .catch(function() {});", !
+        Write "    }", !
+        Write "    function refreshArticles() {", !
+        Write "        fetch('/api/articles/articles?size=100')", !
+        Write "        .then(function(r) { return r.json(); })", !
+        Write "        .then(function(data) {", !
+        Write "            var grid = document.querySelector('.grid');", !
+        Write "            if (!grid) {", !
+        Write "                var container = document.querySelector('.container');", !
+        Write "                if (!container) return;", !
+        Write "                var empty = container.querySelector('.empty');", !
+        Write "                if (empty) empty.remove();", !
+        Write "                grid = document.createElement('div');", !
+        Write "                grid.className = 'grid';", !
+        Write "                container.appendChild(grid);", !
+        Write "            }", !
+        Write "            grid.innerHTML = '';", !
+        Write "            if (!data.articles || data.articles.length === 0) {", !
+        Write "                grid.innerHTML = '<p class=""empty"">Aucun article pour le moment.</p>';", !
+        Write "                return;", !
+        Write "            }", !
+        Write "            data.articles.forEach(function(a) {", !
+        Write "                var badge = 'badge-' + (a.status || 'draft');", !
+        Write "                var viewUrl = 'Article.Web.ArticleView.cls?id=' + a.id;", !
+        Write "                var editUrl = 'Article.Web.ArticleForm.cls?id=' + a.id;", !
+        Write "                var title = a.title || 'Sans titre';", !
+        Write "                var titleSafe = title.replace(/'/g, '&#39;');", !
+        Write "                var card = '<div class=""card"">'", !
+        Write "                    + '<a href=""' + viewUrl + '"" class=""card-thumb"">&#128196;</a>'", !
+        Write "                    + '<div class=""card-body"">'", !
+        Write "                    + '<h2><a href=""' + viewUrl + '"">' + title + '</a></h2>'", !
+        Write "                    + '<div class=""meta"">'", !
+        Write "                    + '<span>&#9998; ' + (a.author || '') + '</span>'", !
+        Write "                    + '<span>&#128197; ' + (a.dateCreated || '').split(' ')[0] + '</span>'", !
+        Write "                    + '<span class=""badge ' + badge + '"">' + (a.status || '') + '</span>'", !
+        Write "                    + '</div>';", !
+        Write "                if (a.category) card += '<div class=""meta""><span>&#128193; ' + a.category + '</span></div>';", !
+        Write "                card += '<div class=""card-actions auth-only"" style=""display:none;"">'", !
+        Write "                    + '<a href=""' + editUrl + '"" class=""btn-card-edit"">&#9998; Modifier</a>'", !
+        Write "                    + '<button class=""btn-card-delete"" onclick=""deleteArticle(\\'' + a.id + '\\', \\'' + titleSafe + '\\'); return false;"">&#128465; Supprimer</button>'", !
+        Write "                    + '</div></div></div>';", !
+        Write "                grid.innerHTML += card;", !
+        Write "            });", !
+        Write "            if (typeof checkAuth === 'function') checkAuth();", !
+        Write "        })", !
+        Write "        .catch(function() {});", !
+        Write "    }", !
+        Write "    setInterval(pollChanges, pollInterval);", !
+        Write "    pollChanges();", !
+        Write "})();", !
+        Write "</script>", !
     }
     Catch ex {
         Set sc = ex.AsStatus()
