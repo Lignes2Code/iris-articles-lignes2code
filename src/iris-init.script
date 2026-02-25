@@ -68,5 +68,9 @@ zn "USER"
 // Charger et compiler toutes les classes ObjectScript
 do $system.OBJ.LoadDir("/home/irisowner/src/cls/", "ck", .err, 1)
 
+// L'authentification utilise les utilisateurs IRIS natifs (_SYSTEM, etc.)
+// Pas besoin de créer d'utilisateur applicatif séparé.
+Write "Authentification JWT configurée (utilisateurs IRIS natifs)",!
+
 // Démarrer la production d'interopérabilité
 do ##class(Ens.Director).StartProduction("Article.Production.ArticleProduction")

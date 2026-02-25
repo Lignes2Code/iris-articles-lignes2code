@@ -95,7 +95,10 @@ Method ImportFromDynObj(pJson As %DynamicObject) As %Status
             }
         }
         
-        // Thumbnail
+        // Mise à jour de la date de modification
+        Set ..DateModified = $ZDateTime($Horolog, 3)
+        
+        // Thumbnail : remplacer l'existant (pas d'accumulation)
         If pJson.%IsDefined("thumbnail") {
             Set thumbJson = pJson.%Get("thumbnail")
             If $IsObject(thumbJson) {
@@ -103,19 +106,28 @@ Method ImportFromDynObj(pJson As %DynamicObject) As %Status
                 Set sc = thumb.ImportFromDynObj(thumbJson)
                 If $$$ISERR(sc) Return sc
                 Set ..Thumbnail = thumb
+            } Else {
+                // Si thumbnail est null/vide, on le supprime
+                Set ..Thumbnail = ""
             }
         }
         
-        // Images array
+        // Images array : vider puis réinsérer (le PUT remplace, pas accumule)
         If pJson.%IsDefined("images") {
+            Do ..Images.Clear()
             Set imagesArray = pJson.%Get("images")
             If $IsObject(imagesArray) {
                 Set iter = imagesArray.%GetIterator()
                 While iter.%GetNext(.key, .imgJson) {
                     If $IsObject(imgJson) {
                         Set img = ##class(Article.Data.ArticleImage).%New()
-                        Set sc = img.ImportFromDynObj(imgJson)
-                        If $$$ISERR(sc) Continue
+                        Set imgSc = img.ImportFromDynObj(imgJson)
+                        If $$$ISERR(imgSc) {
+                            // Log l'erreur mais continue avec les autres images
+                            Set errMsg = "Erreur import image #" _ key _ " : " _ $System.Status.GetErrorText(imgSc)
+                            Do ##class(%SYS.System).WriteToConsoleLog(errMsg)
+                            Continue
+                        }
                         Do ..Images.Insert(img)
                     }
                 }

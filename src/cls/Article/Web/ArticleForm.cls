@@ -195,348 +195,10 @@ ClassMethod OnPage() As %Status
         &html<
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-<script>
-// Initialiser Quill
-var quill = new Quill('#editor', {
-    modules: {
-        toolbar: '#toolbar'
-    },
-    theme: 'snow',
-    placeholder: 'R\u00e9digez votre article ici...'
-});
->>
+>
 
-        // En mode édition : injecter le contenu et les données du thumbnail
-        If isEdit {
-            &html<<script>>
-            // Contenu dans Quill
-            Write "quill.root.innerHTML = "
-            // Sérialiser le contenu du stream en JSON string
-            If $IsObject(article.Content) && (article.Content.Size > 0) {
-                Do article.Content.Rewind()
-                // Début de la chaîne JSON
-                Write """"
-                While 'article.Content.AtEnd {
-                    Set chunk = article.Content.Read(32000)
-                    // Échapper pour JavaScript string
-                    Set chunk = $Replace(chunk, "\", "\\")
-                    Set chunk = $Replace(chunk, """", "\""")
-                    Set chunk = $Replace(chunk, $Char(10), "\n")
-                    Set chunk = $Replace(chunk, $Char(13), "\r")
-                    Write chunk
-                }
-                Write """"
-            } Else {
-                Write "''"
-            }
-            Write ";"
-
-            // Pré-remplir les champs cachés du thumbnail
-            If $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
-                Write "document.getElementById('thumbMime').value = '" _ $ZConvert(article.Thumbnail.MimeType, "O", "JS") _ "';"
-                Write "document.getElementById('thumbName').value = '" _ $ZConvert(article.Thumbnail.Name, "O", "JS") _ "';"
-                // Écrire le base64 du thumbnail dans le champ caché
-                Write "document.getElementById('thumbBase64').value = '"
-                Do article.Thumbnail.Base64Data.Rewind()
-                While 'article.Thumbnail.Base64Data.AtEnd {
-                    Write article.Thumbnail.Base64Data.Read(32000)
-                }
-                Write "';"
-            }
-            &html<</script>>
-        }
-
-        &html<
-<script>
-var thumbUpload = document.getElementById('thumbUpload');
-var thumbFile = document.getElementById('thumbFile');
-var thumbImg = document.getElementById('thumbImg');
-var thumbPlaceholder = document.getElementById('thumbPlaceholder');
-
-thumbUpload.addEventListener('click', function() { thumbFile.click(); });
-thumbUpload.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });
-thumbUpload.addEventListener('dragleave', function() { this.classList.remove('dragover'); });
-thumbUpload.addEventListener('drop', function(e) {
-    e.preventDefault();
-    this.classList.remove('dragover');
-    if (e.dataTransfer.files.length) handleThumbFile(e.dataTransfer.files[0]);
-});
-thumbFile.addEventListener('change', function() {
-    if (this.files.length) handleThumbFile(this.files[0]);
-});
-
-// --- Redimensionnement d'image ---
-var resizePanel = document.getElementById('resizePanel');
-var resizeCanvas = document.getElementById('resizeCanvas');
-var resizeCtx = resizeCanvas.getContext('2d');
-var resizeW = document.getElementById('resizeW');
-var resizeH = document.getElementById('resizeH');
-var resizeLock = document.getElementById('resizeLock');
-var resizeScale = document.getElementById('resizeScale');
-var resizePercent = document.getElementById('resizePercent');
-var resizeOrigInfo = document.getElementById('resizeOrigInfo');
-var originalImage = null; // Image() object
-var origW = 0, origH = 0;
-var currentThumbFile = null;
-
-function handleThumbFile(file) {
-    if (!file.type.startsWith('image/')) { alert('Veuillez choisir une image.'); return; }
-    thumbUpload.classList.remove('thumb-error');
-    currentThumbFile = file;
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        // Charger l'image originale
-        originalImage = new Image();
-        originalImage.onload = function() {
-            origW = originalImage.naturalWidth;
-            origH = originalImage.naturalHeight;
-            resizeOrigInfo.textContent = 'Original : ' + origW + ' \u00d7 ' + origH + ' px';
-            resizeW.value = origW;
-            resizeH.value = origH;
-            resizeScale.value = 100;
-            resizePercent.textContent = '100';
-            // Afficher le panneau de redimensionnement
-            resizePanel.style.display = 'block';
-            drawResizePreview();
-            // Mettre \u00e0 jour la preview principale
-            applyResizedImage();
-        };
-        originalImage.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-
-function drawResizePreview() {
-    if (!originalImage) return;
-    var w = parseInt(resizeW.value) || origW;
-    var h = parseInt(resizeH.value) || origH;
-    // Limiter le canvas de preview \u00e0 500px max
-    var maxPrev = 500;
-    var scale = Math.min(maxPrev / w, maxPrev / h, 1);
-    resizeCanvas.width = Math.round(w * scale);
-    resizeCanvas.height = Math.round(h * scale);
-    resizeCtx.clearRect(0, 0, resizeCanvas.width, resizeCanvas.height);
-    resizeCtx.drawImage(originalImage, 0, 0, resizeCanvas.width, resizeCanvas.height);
-}
-
-function applyResizedImage() {
-    if (!originalImage) return;
-    var w = parseInt(resizeW.value) || origW;
-    var h = parseInt(resizeH.value) || origH;
-    // Cr\u00e9er un canvas temporaire aux dimensions finales
-    var tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = w;
-    tmpCanvas.height = h;
-    var tmpCtx = tmpCanvas.getContext('2d');
-    tmpCtx.drawImage(originalImage, 0, 0, w, h);
-    // Extraire le r\u00e9sultat
-    var mime = currentThumbFile ? currentThumbFile.type : 'image/jpeg';
-    // Utiliser un format compatible canvas
-    var outMime = (mime === 'image/png') ? 'image/png' : 'image/jpeg';
-    var quality = (outMime === 'image/jpeg') ? 0.92 : undefined;
-    var dataURL = tmpCanvas.toDataURL(outMime, quality);
-    thumbImg.src = dataURL;
-    thumbImg.style.display = 'block';
-    thumbPlaceholder.style.display = 'none';
-    var base64 = dataURL.split(',')[1];
-    document.getElementById('thumbBase64').value = base64;
-    document.getElementById('thumbMime').value = outMime;
-    document.getElementById('thumbName').value = currentThumbFile ? currentThumbFile.name : 'thumbnail';
-}
-
-// \u00c9v\u00e9nements du panneau de redimensionnement
-resizeW.addEventListener('input', function() {
-    if (resizeLock.checked && origW > 0) {
-        var ratio = origH / origW;
-        resizeH.value = Math.round(parseInt(this.value) * ratio);
-    }
-    updateScaleFromDims();
-    drawResizePreview();
-    applyResizedImage();
-});
-resizeH.addEventListener('input', function() {
-    if (resizeLock.checked && origH > 0) {
-        var ratio = origW / origH;
-        resizeW.value = Math.round(parseInt(this.value) * ratio);
-    }
-    updateScaleFromDims();
-    drawResizePreview();
-    applyResizedImage();
-});
-resizeScale.addEventListener('input', function() {
-    var pct = parseInt(this.value);
-    resizePercent.textContent = pct;
-    resizeW.value = Math.round(origW * pct / 100);
-    resizeH.value = Math.round(origH * pct / 100);
-    drawResizePreview();
-    applyResizedImage();
-});
-
-function updateScaleFromDims() {
-    var pct = Math.round((parseInt(resizeW.value) / origW) * 100);
-    resizeScale.value = Math.min(Math.max(pct, 10), 100);
-    resizePercent.textContent = resizeScale.value;
-}
-
-// Presets
-document.querySelectorAll('.preset-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var pw = parseInt(this.dataset.w);
-        var ph = parseInt(this.dataset.h);
-        if (pw === 0 && ph === 0) {
-            resizeW.value = origW;
-            resizeH.value = origH;
-        } else {
-            resizeW.value = pw;
-            resizeH.value = ph;
-        }
-        updateScaleFromDims();
-        drawResizePreview();
-        applyResizedImage();
-    });
-});
-
-// Bouton Appliquer
-document.getElementById('resizeApply').addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    applyResizedImage();
-    resizePanel.querySelector('.resize-header span').textContent = '\u2713 Dimensions appliqu\u00e9es : ' + resizeW.value + ' \u00d7 ' + resizeH.value + ' px';
-});
-
-// Bouton R\u00e9initialiser
-document.getElementById('resizeReset').addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    resizeW.value = origW;
-    resizeH.value = origH;
-    resizeScale.value = 100;
-    resizePercent.textContent = '100';
-    drawResizePreview();
-    applyResizedImage();
-    resizePanel.querySelector('.resize-header span').textContent = '\u2699 Redimensionner l\'image';
-});
-
-// Soumission du formulaire
-document.getElementById('articleForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    var title = document.getElementById('title').value.trim();
-    var author = document.getElementById('author').value.trim();
-    if (!title || !author) { alert('Titre et auteur sont obligatoires.'); return; }
-
-    // V\u00e9rifier que la photo d'en-t\u00eate est pr\u00e9sente
-    if (!document.getElementById('thumbBase64').value) {
-        alert('La photo d\'en-t\u00eate est obligatoire. Elle sera utilis\u00e9e comme image de la carte de l\'article.');
-        document.getElementById('thumbUpload').classList.add('thumb-error');
-        return;
-    }
-
-    // R\u00e9cup\u00e9rer le HTML de Quill
-    var htmlContent = quill.root.innerHTML;
-    if (htmlContent === '<p><br></p>' || !htmlContent.trim()) {
-        alert('Le contenu de l\'article est obligatoire.');
-        return;
-    }
-
-    // Extraire les images inline du contenu Quill (base64)
-    var images = [];
-    var tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-    var imgElements = tempDiv.querySelectorAll('img');
-    imgElements.forEach(function(img, idx) {
-        var src = img.getAttribute('src');
-        if (src && src.startsWith('data:')) {
-            var parts = src.split(',');
-            var mimeMatch = parts[0].match(/data:(.*?);/);
-            var mime = mimeMatch ? mimeMatch[1] : 'image/png';
-            var b64 = parts[1];
-            var name = 'image-' + (idx + 1) + '.' + mime.split('/')[1];
-            images.push({ name: name, mimeType: mime, data: b64 });
-        }
-    });
-
-    document.getElementById('content').value = htmlContent;
-
-    // Construire le JSON
-    var article = {
-        title: title,
-        content: htmlContent,
-        author: author,
-        category: document.getElementById('category').value.trim(),
-        status: document.getElementById('status').value,
-        images: images
-    };
-
-    // Ajouter la vignette si pr\u00e9sente
-    var tb64 = document.getElementById('thumbBase64').value;
-    if (tb64) {
-        article.thumbnail = {
-            name: document.getElementById('thumbName').value,
-            mimeType: document.getElementById('thumbMime').value,
-            data: tb64
-        };
-    }
-
-    // Envoyer en POST
-    var submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-
-    // D\u00e9tecter le mode \u00e9dition
-    var editIdEl = document.getElementById('editId');
-    var isEditMode = editIdEl && editIdEl.value;
-
-    if (isEditMode) {
-        // Mode \u00e9dition : PUT vers l'API REST
-        submitBtn.textContent = 'Enregistrement en cours...';
-        fetch('/api/articles/articles/' + editIdEl.value, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(article)
-        })
-        .then(function(resp) { return resp.json(); })
-        .then(function(data) {
-            if (data.message) {
-                window.location.href = '#(..Link("Article.Web.ArticleList.cls"))#';
-            } else {
-                alert('Erreur: ' + (data.error || 'inconnue'));
-                submitBtn.disabled = false;
-                submitBtn.textContent = '\uD83D\uDCBE Enregistrer les modifications';
-            }
-        })
-        .catch(function(err) {
-            alert('Erreur r\u00e9seau: ' + err);
-            submitBtn.disabled = false;
-            submitBtn.textContent = '\uD83D\uDCBE Enregistrer les modifications';
-        });
-    } else {
-        // Mode cr\u00e9ation : POST vers le formulaire (g\u00e9n\u00e8re le fichier JSON)
-        submitBtn.textContent = 'G\u00e9n\u00e9ration en cours...';
-        fetch(window.location.href, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(article)
-        })
-        .then(function(resp) { return resp.json(); })
-        .then(function(data) {
-            if (data.success) {
-                window.location.href = '#(..Link("Article.Web.ArticleList.cls"))#';
-            } else {
-                alert('Erreur: ' + (data.error || 'inconnue'));
-                submitBtn.disabled = false;
-                submitBtn.textContent = '\uD83D\uDCBE G\u00e9n\u00e9rer le fichier JSON';
-            }
-        })
-        .catch(function(err) {
-            alert('Erreur r\u00e9seau: ' + err);
-            submitBtn.disabled = false;
-            submitBtn.textContent = '\uD83D\uDCBE G\u00e9n\u00e9rer le fichier JSON';
-        });
-    }
-});
-</script>>
+        // Scripts via Write (pas &html) pour éviter les conflits avec > et {}
+        Do ..DrawScripts(isEdit, $Select(isEdit: article, 1: ""))
 
         Do ..DrawFooter()
     }
@@ -554,10 +216,30 @@ ClassMethod ProcessForm() As %Status
     Set %response.ContentType = "application/json"
     Set %response.CharSet = "utf-8"
     Try {
+        // Vérifier l'authentification JWT
+        Set token = ##class(Article.Auth.JWT).ExtractBearerToken(%request)
+        If token = "" {
+            Set %response.Status = "401 Unauthorized"
+            Set errObj = ##class(%DynamicObject).%New()
+            Set errObj.error = "Authentification requise"
+            Write errObj.%ToJSON()
+            Return $$$OK
+        }
+        Set claims = ##class(Article.Auth.JWT).ValidateToken(token, .jwtStatus)
+        If '$IsObject(claims) {
+            Set %response.Status = "401 Unauthorized"
+            Set errObj = ##class(%DynamicObject).%New()
+            Set errObj.error = "Token invalide: " _ $System.Status.GetErrorText(jwtStatus)
+            Write errObj.%ToJSON()
+            Return $$$OK
+        }
         // Lire le body comme un stream (évite MAXSTRING pour les gros JSON avec images base64)
         Set body = %request.Content
         If '$IsObject(body) {
-            Write "{""success"":false,""error"":""Corps de requête vide""}"
+            Set r = ##class(%DynamicObject).%New()
+            Set r.success = 0
+            Set r.error = "Corps de requête vide"
+            Write r.%ToJSON()
             Return sc
         }
 
@@ -570,7 +252,10 @@ ClassMethod ProcessForm() As %Status
         Do stream.Rewind()
 
         If stream.Size = 0 {
-            Write "{""success"":false,""error"":""Données JSON vides""}"
+            Set r = ##class(%DynamicObject).%New()
+            Set r.success = 0
+            Set r.error = "Données JSON vides"
+            Write r.%ToJSON()
             Return sc
         }
 
@@ -580,7 +265,10 @@ ClassMethod ProcessForm() As %Status
         Do stream.Rewind()
 
         If title = "" {
-            Write "{""success"":false,""error"":""Titre manquant""}"
+            Set r = ##class(%DynamicObject).%New()
+            Set r.success = 0
+            Set r.error = "Titre manquant"
+            Write r.%ToJSON()
             Return sc
         }
 
@@ -602,7 +290,10 @@ ClassMethod ProcessForm() As %Status
         Set fileStream = ##class(%Stream.FileCharacter).%New()
         Set sc = fileStream.LinkToFile(filePath)
         If $$$ISERR(sc) {
-            Write "{""success"":false,""error"":""Impossible de créer le fichier: " _ $System.Status.GetErrorText(sc) _ """}"
+            Set r = ##class(%DynamicObject).%New()
+            Set r.success = 0
+            Set r.error = "Impossible de créer le fichier: " _ $System.Status.GetErrorText(sc)
+            Write r.%ToJSON()
             Return $$$OK
         }
         // Copier le stream du body vers le fichier par chunks
@@ -613,20 +304,340 @@ ClassMethod ProcessForm() As %Status
         }
         Set sc = fileStream.%Save()
         If $$$ISERR(sc) {
-            Write "{""success"":false,""error"":""Erreur d'écriture: " _ $System.Status.GetErrorText(sc) _ """}"
+            Set r = ##class(%DynamicObject).%New()
+            Set r.success = 0
+            Set r.error = "Erreur d'écriture: " _ $System.Status.GetErrorText(sc)
+            Write r.%ToJSON()
             Return $$$OK
         }
 
-        Set response = {}
+        Set response = ##class(%DynamicObject).%New()
         Set response.success = 1
         Set response.message = "Fichier JSON généré avec succès"
         Set response.fileName = fileName
         Write response.%ToJSON()
     }
     Catch ex {
-        Write "{""success"":false,""error"":""" _ $ZConvert(ex.DisplayString(), "O", "JS") _ """}"
+        Set r = ##class(%DynamicObject).%New()
+        Set r.success = 0
+        Set r.error = $ZConvert(ex.DisplayString(), "O", "JS")
+        Write r.%ToJSON()
     }
     Return $$$OK
+}
+
+/// Scripts JavaScript du formulaire (via Write pour éviter les conflits &html avec > et {})
+ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = "")
+{
+    Set q = $Char(34) // guillemet double
+    Set nl = $Char(10) // nouvelle ligne
+    Set loginUrl = ..Link("Article.Web.Login.cls")
+    Set listUrl = ..Link("Article.Web.ArticleList.cls")
+
+    Write "<script>", nl
+
+    // Initialiser Quill
+    Write "var quill = new Quill('#editor', {", nl
+    Write "    modules: { toolbar: '#toolbar' },", nl
+    Write "    theme: 'snow',", nl
+    Write "    placeholder: 'R\u00e9digez votre article ici...'", nl
+    Write "});", nl
+
+    // En mode édition : injecter le contenu existant
+    If isEdit && $IsObject(article) {
+        // Contenu dans Quill
+        Write "quill.root.innerHTML = "
+        If $IsObject(article.Content) && (article.Content.Size > 0) {
+            Do article.Content.Rewind()
+            Write q
+            While 'article.Content.AtEnd {
+                Set chunk = article.Content.Read(32000)
+                Set chunk = $Replace(chunk, "\", "\\")
+                Set chunk = $Replace(chunk, q, "\" _ q")
+                Set chunk = $Replace(chunk, $Char(10), "\n")
+                Set chunk = $Replace(chunk, $Char(13), "\r")
+                Write chunk
+            }
+            Write q
+        } Else {
+            Write "''"
+        }
+        Write ";", nl
+
+        // Pré-remplir les champs du thumbnail
+        If $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
+            Write "document.getElementById('thumbMime').value = '" _ $ZConvert(article.Thumbnail.MimeType, "O", "JS") _ "';", nl
+            Write "document.getElementById('thumbName').value = '" _ $ZConvert(article.Thumbnail.Name, "O", "JS") _ "';", nl
+            Write "document.getElementById('thumbBase64').value = '"
+            Do article.Thumbnail.Base64Data.Rewind()
+            While 'article.Thumbnail.Base64Data.AtEnd {
+                Write article.Thumbnail.Base64Data.Read(32000)
+            }
+            Write "';", nl
+        }
+    }
+
+    // Variables DOM
+    Write "var thumbUpload = document.getElementById('thumbUpload');", nl
+    Write "var thumbFile = document.getElementById('thumbFile');", nl
+    Write "var thumbImg = document.getElementById('thumbImg');", nl
+    Write "var thumbPlaceholder = document.getElementById('thumbPlaceholder');", nl
+    Write "thumbUpload.addEventListener('click', function() { thumbFile.click(); });", nl
+    Write "thumbUpload.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });", nl
+    Write "thumbUpload.addEventListener('dragleave', function() { this.classList.remove('dragover'); });", nl
+    Write "thumbUpload.addEventListener('drop', function(e) {", nl
+    Write "    e.preventDefault(); this.classList.remove('dragover');", nl
+    Write "    if (e.dataTransfer.files.length) handleThumbFile(e.dataTransfer.files[0]);", nl
+    Write "});", nl
+    Write "thumbFile.addEventListener('change', function() {", nl
+    Write "    if (this.files.length) handleThumbFile(this.files[0]);", nl
+    Write "});", nl
+
+    // Variables resize
+    Write "var resizePanel = document.getElementById('resizePanel');", nl
+    Write "var resizeCanvas = document.getElementById('resizeCanvas');", nl
+    Write "var resizeCtx = resizeCanvas.getContext('2d');", nl
+    Write "var resizeW = document.getElementById('resizeW');", nl
+    Write "var resizeH = document.getElementById('resizeH');", nl
+    Write "var resizeLock = document.getElementById('resizeLock');", nl
+    Write "var resizeScale = document.getElementById('resizeScale');", nl
+    Write "var resizePercent = document.getElementById('resizePercent');", nl
+    Write "var resizeOrigInfo = document.getElementById('resizeOrigInfo');", nl
+    Write "var originalImage = null;", nl
+    Write "var origW = 0, origH = 0;", nl
+    Write "var currentThumbFile = null;", nl
+
+    // handleThumbFile
+    Write "function handleThumbFile(file) {", nl
+    Write "    if (!file.type.startsWith('image/')) { alert('Veuillez choisir une image.'); return; }", nl
+    Write "    thumbUpload.classList.remove('thumb-error');", nl
+    Write "    currentThumbFile = file;", nl
+    Write "    var reader = new FileReader();", nl
+    Write "    reader.onload = function(e) {", nl
+    Write "        originalImage = new Image();", nl
+    Write "        originalImage.onload = function() {", nl
+    Write "            origW = originalImage.naturalWidth;", nl
+    Write "            origH = originalImage.naturalHeight;", nl
+    Write "            resizeOrigInfo.textContent = 'Original : ' + origW + ' \u00d7 ' + origH + ' px';", nl
+    Write "            resizeW.value = origW; resizeH.value = origH;", nl
+    Write "            resizeScale.value = 100; resizePercent.textContent = '100';", nl
+    Write "            resizePanel.style.display = 'block';", nl
+    Write "            drawResizePreview(); applyResizedImage();", nl
+    Write "        };", nl
+    Write "        originalImage.src = e.target.result;", nl
+    Write "    };", nl
+    Write "    reader.readAsDataURL(file);", nl
+    Write "}", nl
+
+    // drawResizePreview
+    Write "function drawResizePreview() {", nl
+    Write "    if (!originalImage) return;", nl
+    Write "    var w = parseInt(resizeW.value) || origW;", nl
+    Write "    var h = parseInt(resizeH.value) || origH;", nl
+    Write "    var maxPrev = 500;", nl
+    Write "    var scale = Math.min(maxPrev / w, maxPrev / h, 1);", nl
+    Write "    resizeCanvas.width = Math.round(w * scale);", nl
+    Write "    resizeCanvas.height = Math.round(h * scale);", nl
+    Write "    resizeCtx.clearRect(0, 0, resizeCanvas.width, resizeCanvas.height);", nl
+    Write "    resizeCtx.drawImage(originalImage, 0, 0, resizeCanvas.width, resizeCanvas.height);", nl
+    Write "}", nl
+
+    // applyResizedImage
+    Write "function applyResizedImage() {", nl
+    Write "    if (!originalImage) return;", nl
+    Write "    var w = parseInt(resizeW.value) || origW;", nl
+    Write "    var h = parseInt(resizeH.value) || origH;", nl
+    Write "    var tmpCanvas = document.createElement('canvas');", nl
+    Write "    tmpCanvas.width = w; tmpCanvas.height = h;", nl
+    Write "    var tmpCtx = tmpCanvas.getContext('2d');", nl
+    Write "    tmpCtx.drawImage(originalImage, 0, 0, w, h);", nl
+    Write "    var mime = currentThumbFile ? currentThumbFile.type : 'image/jpeg';", nl
+    Write "    var outMime = (mime === 'image/png') ? 'image/png' : 'image/jpeg';", nl
+    Write "    var quality = (outMime === 'image/jpeg') ? 0.92 : undefined;", nl
+    Write "    var dataURL = tmpCanvas.toDataURL(outMime, quality);", nl
+    Write "    thumbImg.src = dataURL; thumbImg.style.display = 'block';", nl
+    Write "    thumbPlaceholder.style.display = 'none';", nl
+    Write "    var base64 = dataURL.split(',')[1];", nl
+    Write "    document.getElementById('thumbBase64').value = base64;", nl
+    Write "    document.getElementById('thumbMime').value = outMime;", nl
+    Write "    document.getElementById('thumbName').value = currentThumbFile ? currentThumbFile.name : 'thumbnail';", nl
+    Write "}", nl
+
+    // Resize events
+    Write "resizeW.addEventListener('input', function() {", nl
+    Write "    if (resizeLock.checked && origW > 0) {", nl
+    Write "        var ratio = origH / origW;", nl
+    Write "        resizeH.value = Math.round(parseInt(this.value) * ratio);", nl
+    Write "    }", nl
+    Write "    updateScaleFromDims(); drawResizePreview(); applyResizedImage();", nl
+    Write "});", nl
+    Write "resizeH.addEventListener('input', function() {", nl
+    Write "    if (resizeLock.checked && origH > 0) {", nl
+    Write "        var ratio = origW / origH;", nl
+    Write "        resizeW.value = Math.round(parseInt(this.value) * ratio);", nl
+    Write "    }", nl
+    Write "    updateScaleFromDims(); drawResizePreview(); applyResizedImage();", nl
+    Write "});", nl
+    Write "resizeScale.addEventListener('input', function() {", nl
+    Write "    var pct = parseInt(this.value);", nl
+    Write "    resizePercent.textContent = pct;", nl
+    Write "    resizeW.value = Math.round(origW * pct / 100);", nl
+    Write "    resizeH.value = Math.round(origH * pct / 100);", nl
+    Write "    drawResizePreview(); applyResizedImage();", nl
+    Write "});", nl
+
+    // updateScaleFromDims
+    Write "function updateScaleFromDims() {", nl
+    Write "    var pct = Math.round((parseInt(resizeW.value) / origW) * 100);", nl
+    Write "    resizeScale.value = Math.min(Math.max(pct, 10), 100);", nl
+    Write "    resizePercent.textContent = resizeScale.value;", nl
+    Write "}", nl
+
+    // Presets
+    Write "document.querySelectorAll('.preset-btn').forEach(function(btn) {", nl
+    Write "    btn.addEventListener('click', function(e) {", nl
+    Write "        e.preventDefault(); e.stopPropagation();", nl
+    Write "        var pw = parseInt(this.dataset.w);", nl
+    Write "        var ph = parseInt(this.dataset.h);", nl
+    Write "        if (pw === 0 && ph === 0) { resizeW.value = origW; resizeH.value = origH; }", nl
+    Write "        else { resizeW.value = pw; resizeH.value = ph; }", nl
+    Write "        updateScaleFromDims(); drawResizePreview(); applyResizedImage();", nl
+    Write "    });", nl
+    Write "});", nl
+
+    // Bouton Appliquer
+    Write "document.getElementById('resizeApply').addEventListener('click', function(e) {", nl
+    Write "    e.preventDefault(); e.stopPropagation();", nl
+    Write "    applyResizedImage();", nl
+    Write "    resizePanel.querySelector('.resize-header span').textContent = '\u2713 Dimensions appliqu\u00e9es : ' + resizeW.value + ' \u00d7 ' + resizeH.value + ' px';", nl
+    Write "});", nl
+
+    // Bouton Réinitialiser
+    Write "document.getElementById('resizeReset').addEventListener('click', function(e) {", nl
+    Write "    e.preventDefault(); e.stopPropagation();", nl
+    Write "    resizeW.value = origW; resizeH.value = origH;", nl
+    Write "    resizeScale.value = 100; resizePercent.textContent = '100';", nl
+    Write "    drawResizePreview(); applyResizedImage();", nl
+    Write "    resizePanel.querySelector('.resize-header span').textContent = '\u2699 Redimensionner l" _ $Char(39) _ "image';", nl
+    Write "});", nl
+
+    // Vérification auth au chargement
+    Write "(function() {", nl
+    Write "    if (!isAuthenticated()) {", nl
+    Write "        alert('Vous devez \u00eatre connect\u00e9 pour cr\u00e9er ou modifier un article.');", nl
+    Write "        window.location.href = '" _ loginUrl _ "';", nl
+    Write "        return;", nl
+    Write "    }", nl
+    Write "})();", nl
+
+    // Soumission du formulaire
+    Write "document.getElementById('articleForm').addEventListener('submit', function(e) {", nl
+    Write "    e.preventDefault();", nl
+    Write "    var title = document.getElementById('title').value.trim();", nl
+    Write "    var author = document.getElementById('author').value.trim();", nl
+    Write "    if (!title || !author) { alert('Titre et auteur sont obligatoires.'); return; }", nl
+    Write "    if (!document.getElementById('thumbBase64').value) {", nl
+    Write "        alert('La photo d" _ $Char(39) _ "en-t\u00eate est obligatoire.');", nl
+    Write "        document.getElementById('thumbUpload').classList.add('thumb-error');", nl
+    Write "        return;", nl
+    Write "    }", nl
+    Write "    var htmlContent = quill.root.innerHTML;", nl
+    Write "    if (htmlContent === '<p><br></p>' || !htmlContent.trim()) {", nl
+    Write "        alert('Le contenu de l" _ $Char(39) _ "article est obligatoire.');", nl
+    Write "        return;", nl
+    Write "    }", nl
+
+    // Extraire les images inline
+    Write "    var images = [];", nl
+    Write "    var tempDiv = document.createElement('div');", nl
+    Write "    tempDiv.innerHTML = htmlContent;", nl
+    Write "    var imgElements = tempDiv.querySelectorAll('img');", nl
+    Write "    imgElements.forEach(function(img, idx) {", nl
+    Write "        var src = img.getAttribute('src');", nl
+    Write "        if (src && src.startsWith('data:')) {", nl
+    Write "            var parts = src.split(',');", nl
+    Write "            var mimeMatch = parts[0].match(/data:(.*?);/);", nl
+    Write "            var mime = mimeMatch ? mimeMatch[1] : 'image/png';", nl
+    Write "            var b64 = parts[1];", nl
+    Write "            var name = 'image-' + (idx + 1) + '.' + mime.split('/')[1];", nl
+    Write "            images.push({ name: name, mimeType: mime, data: b64 });", nl
+    Write "        }", nl
+    Write "    });", nl
+
+    Write "    document.getElementById('content').value = htmlContent;", nl
+
+    // Construire le JSON article
+    Write "    var article = {", nl
+    Write "        title: title, content: htmlContent, author: author,", nl
+    Write "        category: document.getElementById('category').value.trim(),", nl
+    Write "        status: document.getElementById('status').value,", nl
+    Write "        images: images", nl
+    Write "    };", nl
+
+    // Thumbnail
+    Write "    var tb64 = document.getElementById('thumbBase64').value;", nl
+    Write "    if (tb64) {", nl
+    Write "        article.thumbnail = {", nl
+    Write "            name: document.getElementById('thumbName').value,", nl
+    Write "            mimeType: document.getElementById('thumbMime').value,", nl
+    Write "            data: tb64", nl
+    Write "        };", nl
+    Write "    }", nl
+
+    Write "    var submitBtn = document.getElementById('submitBtn');", nl
+    Write "    submitBtn.disabled = true;", nl
+    Write "    var editIdEl = document.getElementById('editId');", nl
+    Write "    var isEditMode = editIdEl && editIdEl.value;", nl
+
+    // Mode édition (PUT)
+    Write "    if (isEditMode) {", nl
+    Write "        submitBtn.textContent = 'Enregistrement en cours...';", nl
+    Write "        fetch('/api/articles/articles/' + editIdEl.value, {", nl
+    Write "            method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(article)", nl
+    Write "        })", nl
+    Write "        .then(function(resp) {", nl
+    Write "            if (resp.status === 401) {", nl
+    Write "                alert('Session expir\u00e9e. Veuillez vous reconnecter.');", nl
+    Write "                localStorage.removeItem('jwt_token'); localStorage.removeItem('jwt_user'); localStorage.removeItem('jwt_roles');", nl
+    Write "                window.location.href = '" _ loginUrl _ "'; return Promise.reject('unauthorized');", nl
+    Write "            }", nl
+    Write "            return resp.json();", nl
+    Write "        })", nl
+    Write "        .then(function(data) {", nl
+    Write "            if (data.message) { window.location.href = '" _ listUrl _ "'; }", nl
+    Write "            else { alert('Erreur: ' + (data.error || 'inconnue')); submitBtn.disabled = false; submitBtn.textContent = '\uD83D\uDCBE Enregistrer les modifications'; }", nl
+    Write "        })", nl
+    Write "        .catch(function(err) {", nl
+    Write "            if (err === 'unauthorized') return;", nl
+    Write "            alert('Erreur r\u00e9seau: ' + err); submitBtn.disabled = false; submitBtn.textContent = '\uD83D\uDCBE Enregistrer les modifications';", nl
+    Write "        });", nl
+
+    // Mode création (POST)
+    Write "    } else {", nl
+    Write "        submitBtn.textContent = 'G\u00e9n\u00e9ration en cours...';", nl
+    Write "        fetch(window.location.href, {", nl
+    Write "            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(article)", nl
+    Write "        })", nl
+    Write "        .then(function(resp) {", nl
+    Write "            if (resp.status === 401) {", nl
+    Write "                alert('Session expir\u00e9e. Veuillez vous reconnecter.');", nl
+    Write "                localStorage.removeItem('jwt_token'); localStorage.removeItem('jwt_user'); localStorage.removeItem('jwt_roles');", nl
+    Write "                window.location.href = '" _ loginUrl _ "'; return Promise.reject('unauthorized');", nl
+    Write "            }", nl
+    Write "            return resp.json();", nl
+    Write "        })", nl
+    Write "        .then(function(data) {", nl
+    Write "            if (data.success) { window.location.href = '" _ listUrl _ "'; }", nl
+    Write "            else { alert('Erreur: ' + (data.error || 'inconnue')); submitBtn.disabled = false; submitBtn.textContent = '\uD83D\uDCBE G\u00e9n\u00e9rer le fichier JSON'; }", nl
+    Write "        })", nl
+    Write "        .catch(function(err) {", nl
+    Write "            if (err === 'unauthorized') return;", nl
+    Write "            alert('Erreur r\u00e9seau: ' + err); submitBtn.disabled = false; submitBtn.textContent = '\uD83D\uDCBE G\u00e9n\u00e9rer le fichier JSON';", nl
+    Write "        });", nl
+    Write "    }", nl
+    Write "});", nl
+
+    Write "</script>", nl
 }
 
 /// CSS spécifique au formulaire

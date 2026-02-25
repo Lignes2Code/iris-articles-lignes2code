@@ -30,9 +30,9 @@ Method SaveArticleFromFile(pRequest As Article.Message.ArticleRequest, Output pR
             Set ids = ""
             
             While iter.%GetNext(.key, .articleJson) {
-                Set sc = ..SaveOneArticle(articleJson, .articleId)
-                If $$$ISERR(sc) {
-                    $$$LOGERROR("Erreur lors de la sauvegarde de l'article #" _ key _ " : " _ $System.Status.GetErrorText(sc))
+                Set articleSc = ..SaveOneArticle(articleJson, .articleId)
+                If $$$ISERR(articleSc) {
+                    $$$LOGERROR("Erreur lors de la sauvegarde de l'article #" _ key _ " : " _ $System.Status.GetErrorText(articleSc))
                     Continue
                 }
                 Set count = count + 1

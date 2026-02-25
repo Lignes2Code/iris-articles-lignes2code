@@ -74,25 +74,57 @@ docker compose ps
 
 ## API REST - Endpoints
 
+### Authentification
+
+L'API utilise **JWT (JSON Web Token)** avec l'algorithme HS256 pour protéger les opérations d'écriture.
+
+- Les routes **GET** (consultation) sont **publiques** — pas besoin de token.
+- Les routes **POST**, **PUT**, **DELETE** (création, modification, suppression) nécessitent un **token JWT valide**.
+
+| Méthode | Endpoint | Description | Auth |
+|---------|---------|-------------|------|
+| `POST` | `/api/articles/auth/login` | Authentification (retourne un token JWT) | Non |
+| `GET` | `/api/articles/auth/me` | Informations sur l'utilisateur connecté | Oui |
+
+**Compte par défaut :**
+
+| Utilisateur | Mot de passe | Rôle |
+|-------------|-------------|------|
+| `_SYSTEM` | `SYS` | `%All` |
+
+> **Important :** L'authentification JWT utilise les utilisateurs IRIS natifs. Tout utilisateur IRIS valide peut se connecter. Changez le secret JWT (`Article.Auth.JWT:SECRET`) en production.
+
 ### Articles
 
-| Méthode | Endpoint | Description |
-|---------|---------|-------------|
-| `GET` | `/api/articles/health` | Vérification de santé |
-| `GET` | `/api/articles/articles` | Lister tous les articles |
-| `GET` | `/api/articles/articles/:id` | Récupérer un article |
-| `POST` | `/api/articles/articles` | Créer un article |
-| `PUT` | `/api/articles/articles/:id` | Modifier un article |
-| `DELETE` | `/api/articles/articles/:id` | Supprimer un article |
-| `GET` | `/api/articles/articles/category/:cat` | Articles par catégorie |
-| `GET` | `/api/articles/articles/status/:status` | Articles par statut |
+| Méthode | Endpoint | Description | Auth |
+|---------|---------|-------------|------|
+| `GET` | `/api/articles/health` | Vérification de santé | Non |
+| `GET` | `/api/articles/articles` | Lister les articles (paginé) | Non |
+| `GET` | `/api/articles/articles/:id` | Récupérer un article | Non |
+| `POST` | `/api/articles/articles` | Créer un article | **Oui** |
+| `PUT` | `/api/articles/articles/:id` | Modifier un article | **Oui** |
+| `DELETE` | `/api/articles/articles/:id` | Supprimer un article | **Oui** |
+| `GET` | `/api/articles/articles/category/:cat` | Articles par catégorie | Non |
+| `GET` | `/api/articles/articles/status/:status` | Articles par statut | Non |
+
+#### Pagination
+
+Les routes de listing supportent la pagination via paramètres query :
+
+| Paramètre | Défaut | Description |
+|-----------|--------|-------------|
+| `page` | 1 | Numéro de page |
+| `pageSize` | 20 | Nombre d'articles par page (max: 100) |
 
 ### Pages Web CSP
 
-| URL | Description |
-|-----|-------------|
-| `/web/articles/Article.Web.ArticleList.cls` | Liste de tous les articles (HTML) |
-| `/web/articles/Article.Web.ArticleView.cls?id=1` | Détail d'un article (HTML) |
+| URL | Description | Auth |
+|-----|-------------|------|
+| `/web/articles/Article.Web.ArticleList.cls` | Liste des articles | Non |
+| `/web/articles/Article.Web.ArticleView.cls?id=1` | Détail d'un article | Non |
+| `/web/articles/Article.Web.ArticleForm.cls` | Créer un article | **Oui** |
+| `/web/articles/Article.Web.ArticleForm.cls?id=1` | Modifier un article | **Oui** |
+| `/web/articles/Article.Web.Login.cls` | Page de connexion | Non |
 
 ### Exemples cURL
 
@@ -100,9 +132,21 @@ docker compose ps
 # Vérifier la santé du service
 curl http://localhost:52773/api/articles/health
 
-# Créer un article
+# Se connecter et obtenir un token JWT
+curl -X POST http://localhost:52773/api/articles/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "_SYSTEM", "password": "SYS"}'
+# Réponse : {"token":"eyJ...", "username":"_SYSTEM", "roles":"%All", "expiresIn":3600}
+
+# Stocker le token dans une variable
+TOKEN=$(curl -s -X POST http://localhost:52773/api/articles/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "_SYSTEM", "password": "SYS"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+# Créer un article (authentifié)
 curl -X POST http://localhost:52773/api/articles/articles \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "title": "Mon premier article",
     "content": "Le contenu de mon article...",
@@ -111,22 +155,28 @@ curl -X POST http://localhost:52773/api/articles/articles \
     "status": "published"
   }'
 
-# Lister tous les articles
-curl http://localhost:52773/api/articles/articles
+# Lister les articles (public, paginé)
+curl "http://localhost:52773/api/articles/articles?page=1&pageSize=10"
 
-# Récupérer un article par ID
+# Récupérer un article par ID (public)
 curl http://localhost:52773/api/articles/articles/1
 
-# Modifier un article
+# Modifier un article (authentifié)
 curl -X PUT http://localhost:52773/api/articles/articles/1 \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "title": "Mon article modifié",
     "content": "Nouveau contenu..."
   }'
 
-# Supprimer un article
-curl -X DELETE http://localhost:52773/api/articles/articles/1
+# Supprimer un article (authentifié)
+curl -X DELETE http://localhost:52773/api/articles/articles/1 \
+  -H "Authorization: Bearer $TOKEN"
+
+# Voir les infos de l'utilisateur connecté
+curl http://localhost:52773/api/articles/auth/me \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Import d'articles via dossier surveillé (Interopérabilité)
@@ -209,14 +259,20 @@ iris-articles-lignes2code/
     ├── iris-init.script        # Script d'initialisation IRIS
     └── cls/
         └── Article/
+            ├── Auth/
+            │   └── JWT.cls               # Utilitaire JWT (HS256, validation)
             ├── Data/
-            │   └── Article.cls           # Classe persistante Article
+            │   ├── Article.cls           # Classe persistante Article
+            │   ├── ArticleImage.cls      # Classe sérialisable Image
+            │   └── User.cls              # Classe persistante Utilisateur
             ├── Web/
-            │   ├── Base.cls              # Classe CSP abstraite (CSS, header, footer)
+            │   ├── Base.cls              # Classe CSP abstraite (CSS, header, footer, auth JS)
             │   ├── ArticleList.cls       # Page CSP : liste des articles
-            │   └── ArticleView.cls       # Page CSP : détail d'un article
+            │   ├── ArticleView.cls       # Page CSP : détail d'un article
+            │   ├── ArticleForm.cls       # Page CSP : formulaire création/édition
+            │   └── Login.cls             # Page CSP : formulaire de connexion
             ├── REST/
-            │   └── Router.cls            # Routeur REST (JSON uniquement)
+            │   └── Router.cls            # Routeur REST (JSON, auth JWT)
             ├── Message/
             │   ├── ArticleRequest.cls     # Message de requête
             │   └── ArticleResponse.cls    # Message de réponse
@@ -249,9 +305,38 @@ rm -rf data/durable/*
 docker compose up -d --build
 ```
 
+## Sécurité
+
+### Authentification JWT
+
+- Algorithme **HS256** (HMAC-SHA256) via `$System.Encryption.HMACSHA`
+- Tokens avec claims `sub`, `iat`, `exp`, `roles`, `iss`
+- Expiration par défaut : **1 heure** (configurable dans `Article.Auth.JWT:EXPIRATION`)
+- Secret configurable dans `Article.Auth.JWT:SECRET`
+
+### Mots de passe
+
+- Hachage **SHA-256** itéré **10 000 fois** avec sel aléatoire de 32 octets
+- Fonction `$System.Encryption.SHAHash(256, ...)` native IRIS
+
+### Protection XSS
+
+- En-têtes de sécurité HTTP (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`)
+- Sanitisation HTML du contenu des articles (suppression des balises `<script>`, `<iframe>`, `<object>`, `<embed>`, et des attributs `on*`)
+
+### Routes protégées
+
+| Route | GET | POST | PUT | DELETE |
+|-------|-----|------|-----|--------|
+| `/api/articles/articles` | Public | **Auth** | — | — |
+| `/api/articles/articles/:id` | Public | — | **Auth** | **Auth** |
+| `/api/articles/auth/login` | — | Public | — | — |
+| `/api/articles/auth/me` | **Auth** | — | — | — |
+
 ## Technologies
 
 - **InterSystems IRIS Community Edition** (image `intersystems/iris-community:latest-cd`)
 - **Docker Compose**
 - **ObjectScript** (langage natif InterSystems IRIS)
+- **JWT HS256** (authentification applicative)
 - **WebTerminal** (terminal web open-source pour IRIS)

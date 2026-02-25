@@ -62,15 +62,21 @@ ClassMethod OnPage() As %Status
         &html<<div class="container">
 <div class="view-actions">
 <a class="back" href="#(urlList)#">&#8592; Retour aux articles</a>
-<a class="btn btn-edit" href="#(urlEdit)#">&#9998; Modifier cet article</a>
+<a class="btn btn-edit auth-only" style="display:none;" href="#(urlEdit)#">&#9998; Modifier cet article</a>
 </div>
 <div class="content">>
-        // Écrire le contenu depuis le stream par morceaux (évite MAXSTRING)
+        // Écrire le contenu HTML avec sanitisation basique (protection XSS)
+        // Quill.js produit du HTML propre, mais on retire les balises dangereuses par sécurité
         If $IsObject(article.Content) && (article.Content.Size > 0) {
             Do article.Content.Rewind()
             While 'article.Content.AtEnd {
-                Write article.Content.Read(32000)
+                Set chunk = article.Content.Read(32000)
+                // Retirer les balises <script> et <iframe> (protection XSS)
+                Set chunk = ..SanitizeHtml(chunk)
+                Write chunk
             }
+        } Else {
+            &html<<p style="color:#999;font-style:italic;">Aucun contenu</p>>
         }
         &html<</div>>
 

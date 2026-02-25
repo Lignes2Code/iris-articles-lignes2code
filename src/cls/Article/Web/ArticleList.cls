@@ -61,7 +61,7 @@ ClassMethod OnPage() As %Status
             If article.Category '= "" {
                 &html<<div class="meta"><span>&#128193; #($ZConvert(article.Category, "O", "HTML"))#</span></div>>
             }
-            &html<<div class="card-actions"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a></div>>
+            &html<<div class="card-actions auth-only" style="display:none;"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a></div>>
             &html<</div>
 </div>>
         }

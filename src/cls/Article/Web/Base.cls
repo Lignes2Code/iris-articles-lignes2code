@@ -7,6 +7,20 @@ Parameter CONTENTTYPE = "text/html";
 
 Parameter CHARSET = "utf-8";
 
+/// Headers de sécurité HTTP appliqués à toutes les pages
+ClassMethod OnPreHTTP() As %Boolean [ ServerOnly = 1 ]
+{
+    // Protection XSS : empêche le navigateur de deviner le type MIME
+    Do %response.SetHeader("X-Content-Type-Options", "nosniff")
+    // Protection contre le clickjacking
+    Do %response.SetHeader("X-Frame-Options", "SAMEORIGIN")
+    // XSS filter du navigateur
+    Do %response.SetHeader("X-XSS-Protection", "1; mode=block")
+    // Referrer policy
+    Do %response.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin")
+    Return 1
+}
+
 /// Écrit le début du document HTML avec le <head>
 ClassMethod DrawHead(pTitle As %String = "Lignes2Code") As %Status
 {
@@ -104,10 +118,12 @@ footer { text-align: center; padding: 2rem; color: #999; font-size: 0.85rem; }
 }
 
 /// Écrit le header de navigation commun
+/// Inclut un indicateur de connexion (login/logout) basé sur localStorage
 ClassMethod DrawHeader(pTitle As %String = "Articles", pSubtitle As %String = "")
 {
     Set urlList = ..Link("Article.Web.ArticleList.cls")
     Set urlForm = ..Link("Article.Web.ArticleForm.cls")
+    Set urlLogin = ..Link("Article.Web.Login.cls")
     &html<<header>
 <h1>&#128221; #($ZConvert(pTitle, "O", "HTML"))#</h1>>
     If pSubtitle '= "" {
@@ -117,10 +133,46 @@ ClassMethod DrawHeader(pTitle As %String = "Articles", pSubtitle As %String = ""
     }
     &html<<nav>
 <a href="#(urlList)#">&#127968; Tous les articles</a>
-<a href="#(urlForm)#">&#10133; Nouvel article</a>
+<a href="#(urlForm)#" class="auth-only" style="display:none;">&#10133; Nouvel article</a>
 <a href="/api/articles/health">&#128154; API Health</a>
+<a href="#(urlLogin)#" id="nav-login" class="noauth-only">&#128274; Connexion</a>
+<a href="#" id="nav-logout" class="auth-only" style="display:none;" onclick="doLogout(); return false;">&#128275; <span id="nav-user"></span> &mdash; D&eacute;connexion</a>
 </nav>
-</header>>
+</header>
+<script>
+function checkAuth() {
+    var token = localStorage.getItem('jwt_token');
+    var user = localStorage.getItem('jwt_user');
+    var authEls = document.querySelectorAll('.auth-only');
+    var noauthEls = document.querySelectorAll('.noauth-only');
+    if (token && user) {
+        for (var i = 0; i < authEls.length; i++) authEls[i].style.display = '';
+        for (var i = 0; i < noauthEls.length; i++) noauthEls[i].style.display = 'none';
+        var userEl = document.getElementById('nav-user');
+        if (userEl) userEl.textContent = user;
+    } else {
+        for (var i = 0; i < authEls.length; i++) authEls[i].style.display = 'none';
+        for (var i = 0; i < noauthEls.length; i++) noauthEls[i].style.display = '';
+    }
+}
+function doLogout() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('jwt_user');
+    localStorage.removeItem('jwt_roles');
+    checkAuth();
+    window.location.reload();
+}
+function getAuthHeaders() {
+    var token = localStorage.getItem('jwt_token');
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return headers;
+}
+function isAuthenticated() {
+    return !!localStorage.getItem('jwt_token');
+}
+checkAuth();
+</script>>
 }
 
 /// Écrit le footer commun
@@ -129,6 +181,68 @@ ClassMethod DrawFooter()
     &html<<footer>Articles &mdash; Lignes2Code &copy; #($Piece($ZDateTime($Horolog, 3), "-", 1))#</footer>
 </body>
 </html>>
+}
+
+/// Sanitise un fragment HTML en retirant les balises dangereuses
+/// Retire <script>, </script>, <iframe>, </iframe> et les event handlers on*=""
+ClassMethod SanitizeHtml(pHtml As %String) As %String
+{
+    Set result = pHtml
+    // Retirer les balises <script>...</script> et leur contenu
+    // Pattern simplifié : retirer les balises ouvrantes/fermantes
+    Set result = ..StripTag(result, "script")
+    Set result = ..StripTag(result, "iframe")
+    Set result = ..StripTag(result, "object")
+    Set result = ..StripTag(result, "embed")
+    // Retirer les event handlers inline (onerror, onclick, onload, etc.)
+    // Remplacer " on" par " data-blocked-" dans les attributs
+    Set result = ..StripEventHandlers(result)
+    Return result
+}
+
+/// Retire les balises ouvrantes et fermantes d'un type donné (insensible à la casse)
+ClassMethod StripTag(pHtml As %String, pTag As %String) As %String
+{
+    Set result = pHtml
+    Set tagLower = $ZConvert(pTag, "L")
+    Set tagUpper = $ZConvert(pTag, "U")
+    // Balises ouvrantes : <script...> (avec ou sans attributs)
+    Set pos = 1
+    For {
+        Set posLower = $Find(result, "<" _ tagLower, pos)
+        Set posUpper = $Find(result, "<" _ tagUpper, pos)
+        // Prendre la première occurrence trouvée
+        If (posLower = 0) && (posUpper = 0) Quit
+        If posLower = 0 { Set startPos = posUpper }
+        ElseIf posUpper = 0 { Set startPos = posLower }
+        Else { Set startPos = $Select(posLower < posUpper: posLower, 1: posUpper) }
+        // Trouver la fin de la balise
+        Set endPos = $Find(result, ">", startPos)
+        If endPos = 0 Quit
+        // Retirer la balise
+        Set result = $Extract(result, 1, startPos - $Length(tagLower) - 2) _ $Extract(result, endPos, *)
+        Set pos = startPos - $Length(tagLower) - 1
+        If pos < 1 Set pos = 1
+    }
+    // Balises fermantes : </script>
+    Set result = $Replace(result, "</" _ tagLower _ ">", "")
+    Set result = $Replace(result, "</" _ tagUpper _ ">", "")
+    Return result
+}
+
+/// Retire les event handlers inline (onclick, onerror, onload, etc.)
+ClassMethod StripEventHandlers(pHtml As %String) As %String
+{
+    Set result = pHtml
+    // Remplacer " on" suivi d'un mot et "=" par " data-blocked-"
+    // Approche simple : traiter les cas les plus courants
+    Set events = $ListBuild("onclick","onerror","onload","onmouseover","onmouseout","onfocus","onblur","onsubmit","onchange","oninput","onkeydown","onkeyup","onkeypress")
+    Set ptr = 0
+    While $ListNext(events, ptr, event) {
+        Set result = $Replace(result, " " _ event _ "=", " data-blocked-" _ event _ "=")
+        Set result = $Replace(result, " " _ $ZConvert(event, "U") _ "=", " data-blocked-" _ event _ "=")
+    }
+    Return result
 }
 
 }
