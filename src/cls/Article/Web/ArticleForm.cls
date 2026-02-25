@@ -22,9 +22,11 @@ ClassMethod OnPage() As %Status
             Set %response.Status = "404 Not Found"
             Do ..DrawHead("Article non trouv&eacute;")
             Set urlList = ..Link("Article.Web.ArticleList.cls")
-            &html<<body style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f0f2f5;">
-<div class="msg"><h1>404</h1><p>Article ##(editId)# non trouv&eacute;</p>
+            &html<
+<div style="display:flex;justify-content:center;align-items:center;min-height:80vh;">
+<div class="msg"><h1>404</h1><p>Article #(editId)# non trouv&eacute;</p>
 <p><a href="#(urlList)#">&#8592; Retour &agrave; la liste</a></p></div>
+</div>
 </body></html>>
             Return sc
         }
@@ -40,6 +42,8 @@ ClassMethod OnPage() As %Status
 
         // Affichage du formulaire (GET)
         Do ..DrawHead(pageTitle)
+        // Charger Quill CSS tôt pour un rendu correct de la toolbar
+        Write "<link href=""https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css"" rel=""stylesheet"" />", !
         Do ..DrawHeader(pageTitle)
         Do ..DrawFormCSS()
 
@@ -81,28 +85,29 @@ ClassMethod OnPage() As %Status
 </div>
 </div>>
 
+        &html<
 <div class="form-group">
 <label>Image d'en-t&ecirc;te (vignette) *</label>
-<div class="thumb-upload" id="thumbUpload">
-<div class="thumb-preview" id="thumbPreview">
-<span id="thumbPlaceholder">>
+<label for="thumbFile" class="thumb-upload" id="thumbUpload">
+<div class="thumb-preview" id="thumbPreview">>
         // En mode édition avec thumbnail existant, l'afficher
         If isEdit && $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
-            &html<style="display:none;">&#128247; Cliquez ou glissez une image ici</span>>
+            &html<<span id="thumbPlaceholder" style="display:none;">&#128247; Cliquez ou glissez une image ici</span>>
             Write "<img id=""thumbImg"" src="""
             Do article.Thumbnail.WriteDataURI()
             Write """ />"
         } Else {
-            &html<>&#128247; Cliquez ou glissez une image ici</span>
+            &html<<span id="thumbPlaceholder">&#128247; Cliquez ou glissez une image ici</span>
 <img id="thumbImg" style="display:none;" />>
         }
         &html<</div>
+</label>
 <input type="file" id="thumbFile" accept="image/*" style="display:none;" />
 <input type="hidden" id="thumbBase64" name="thumbBase64" />
 <input type="hidden" id="thumbMime" name="thumbMime" />
-<input type="hidden" id="thumbName" name="thumbName" />
-</div>>
+<input type="hidden" id="thumbName" name="thumbName" />>
 
+        &html<
 <div id="resizePanel" class="resize-panel" style="display:none;">
 <div class="resize-header">
 <span>&#9881; Redimensionner l'image</span>
@@ -137,42 +142,6 @@ ClassMethod OnPage() As %Status
 
 <div class="form-group">
 <label>Contenu de l'article *</label>
-<div id="toolbar">
-<span class="ql-formats">
-<select class="ql-header">
-<option value="1">Titre 1</option>
-<option value="2">Titre 2</option>
-<option value="3">Titre 3</option>
-<option selected>Normal</option>
-</select>
-</span>
-<span class="ql-formats">
-<button class="ql-bold"></button>
-<button class="ql-italic"></button>
-<button class="ql-underline"></button>
-<button class="ql-strike"></button>
-</span>
-<span class="ql-formats">
-<button class="ql-list" value="ordered"></button>
-<button class="ql-list" value="bullet"></button>
-<button class="ql-blockquote"></button>
-<button class="ql-code-block"></button>
-</span>
-<span class="ql-formats">
-<button class="ql-link"></button>
-<button class="ql-image"></button>
-</span>
-<span class="ql-formats">
-<select class="ql-color"></select>
-<select class="ql-background"></select>
-</span>
-<span class="ql-formats">
-<select class="ql-align"></select>
-</span>
-<span class="ql-formats">
-<button class="ql-clean"></button>
-</span>
-</div>
 <div id="editor"></div>
 <input type="hidden" id="content" name="content" />
 </div>
@@ -191,11 +160,8 @@ ClassMethod OnPage() As %Status
 </form>
 </div>>
 
-        // Quill.js CDN
-        &html<
-<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
->
+        // Quill.js (CSS déjà chargé en haut de page)
+        Write "<script src=""https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js""></script>", !
 
         // Scripts via Write (pas &html) pour éviter les conflits avec > et {}
         Do ..DrawScripts(isEdit, $Select(isEdit: article, 1: ""))
@@ -336,12 +302,90 @@ ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = ""
 
     Write "<script>", nl
 
-    // Initialiser Quill
+    // Initialiser Quill avec toolbar intégrée (générée par Quill, pas de HTML custom)
     Write "var quill = new Quill('#editor', {", nl
-    Write "    modules: { toolbar: '#toolbar' },", nl
+    Write "    modules: {", nl
+    Write "        toolbar: [", nl
+    Write "            [{ header: [1, 2, 3, false] }],", nl
+    Write "            ['bold', 'italic', 'underline', 'strike'],", nl
+    Write "            [{ list: 'ordered' }, { list: 'bullet' }],", nl
+    Write "            ['blockquote', 'code-block'],", nl
+    Write "            ['link', 'image'],", nl
+    Write "            [{ color: [] }, { background: [] }],", nl
+    Write "            [{ align: [] }],", nl
+    Write "            ['clean']", nl
+    Write "        ]", nl
+    Write "    },", nl
     Write "    theme: 'snow',", nl
     Write "    placeholder: 'R\u00e9digez votre article ici...'", nl
     Write "});", nl
+
+    // Gestionnaire personnalisé d'insertion d'images dans l'éditeur
+    Write "var qlToolbar = quill.getModule('toolbar');", nl
+    Write "qlToolbar.addHandler('image', function() {", nl
+    Write "    var imgInput = document.createElement('input');", nl
+    Write "    imgInput.type = 'file'; imgInput.accept = 'image/*';", nl
+    Write "    imgInput.click();", nl
+    Write "    imgInput.onchange = function() {", nl
+    Write "        if (!imgInput.files.length) return;", nl
+    Write "        var reader = new FileReader();", nl
+    Write "        reader.onload = function(ev) {", nl
+    Write "            var range = quill.getSelection(true);", nl
+    Write "            quill.insertEmbed(range.index, 'image', ev.target.result);", nl
+    Write "            quill.setSelection(range.index + 1);", nl
+    Write "        };", nl
+    Write "        reader.readAsDataURL(imgInput.files[0]);", nl
+    Write "    };", nl
+    Write "});", nl
+
+    // Redimensionnement en temps réel des images dans l'éditeur
+    Write "var editorOverlay = null, editorImgTarget = null;", nl
+    Write "quill.root.addEventListener('click', function(ev) {", nl
+    Write "    if (ev.target && ev.target.tagName === 'IMG') { showEditorResize(ev.target); }", nl
+    Write "    else { hideEditorResize(); }", nl
+    Write "});", nl
+    Write "function showEditorResize(img) {", nl
+    Write "    hideEditorResize();", nl
+    Write "    editorImgTarget = img;", nl
+    Write "    img.style.outline = '2px solid #0f3460';", nl
+    Write "    editorOverlay = document.createElement('div');", nl
+    Write "    editorOverlay.className = 'editor-resize-overlay';", nl
+    Write "    var handle = document.createElement('div');", nl
+    Write "    handle.className = 'editor-resize-handle';", nl
+    Write "    editorOverlay.appendChild(handle);", nl
+    Write "    var dims = document.createElement('div');", nl
+    Write "    dims.className = 'editor-resize-dims';", nl
+    Write "    dims.textContent = (img.width || img.naturalWidth) + ' \u00d7 ' + (img.height || img.naturalHeight);", nl
+    Write "    editorOverlay.appendChild(dims);", nl
+    Write "    var edEl = quill.root;", nl
+    Write "    var ir = img.getBoundingClientRect(), er = edEl.getBoundingClientRect();", nl
+    Write "    editorOverlay.style.left = (ir.left - er.left + edEl.scrollLeft) + 'px';", nl
+    Write "    editorOverlay.style.top = (ir.top - er.top + edEl.scrollTop) + 'px';", nl
+    Write "    editorOverlay.style.width = img.width + 'px';", nl
+    Write "    editorOverlay.style.height = img.height + 'px';", nl
+    Write "    edEl.appendChild(editorOverlay);", nl
+    Write "    handle.addEventListener('mousedown', function(me) {", nl
+    Write "        me.preventDefault(); me.stopPropagation();", nl
+    Write "        var sx = me.clientX, sw = img.width || img.naturalWidth;", nl
+    Write "        var rat = (img.height || img.naturalHeight) / sw;", nl
+    Write "        function onM(e2) {", nl
+    Write "            var nw = Math.max(30, sw + e2.clientX - sx);", nl
+    Write "            var nh = Math.round(nw * rat);", nl
+    Write "            img.setAttribute('width', nw); img.setAttribute('height', nh);", nl
+    Write "            img.style.width = nw + 'px'; img.style.height = nh + 'px';", nl
+    Write "            editorOverlay.style.width = nw + 'px'; editorOverlay.style.height = nh + 'px';", nl
+    Write "            dims.textContent = nw + ' \u00d7 ' + nh;", nl
+    Write "        }", nl
+    Write "        function onU() { document.removeEventListener('mousemove', onM); document.removeEventListener('mouseup', onU); }", nl
+    Write "        document.addEventListener('mousemove', onM);", nl
+    Write "        document.addEventListener('mouseup', onU);", nl
+    Write "    });", nl
+    Write "}", nl
+    Write "function hideEditorResize() {", nl
+    Write "    if (editorOverlay) { editorOverlay.remove(); editorOverlay = null; }", nl
+    Write "    if (editorImgTarget) { editorImgTarget.style.outline = ''; editorImgTarget = null; }", nl
+    Write "}", nl
+    Write "quill.root.addEventListener('scroll', hideEditorResize);", nl
 
     // En mode édition : injecter le contenu existant
     If isEdit && $IsObject(article) {
@@ -352,8 +396,10 @@ ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = ""
             Write q
             While 'article.Content.AtEnd {
                 Set chunk = article.Content.Read(32000)
+                // Décoder les octets UTF-8 stockés dans le stream GlobalCharacter
+                Set chunk = $ZCONVERT(chunk, "I", "UTF8")
                 Set chunk = $Replace(chunk, "\", "\\")
-                Set chunk = $Replace(chunk, q, "\" _ q")
+                Set chunk = $Replace(chunk, q, "\" _ q)
                 Set chunk = $Replace(chunk, $Char(10), "\n")
                 Set chunk = $Replace(chunk, $Char(13), "\r")
                 Write chunk
@@ -382,11 +428,12 @@ ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = ""
     Write "var thumbFile = document.getElementById('thumbFile');", nl
     Write "var thumbImg = document.getElementById('thumbImg');", nl
     Write "var thumbPlaceholder = document.getElementById('thumbPlaceholder');", nl
-    Write "thumbUpload.addEventListener('click', function() { thumbFile.click(); });", nl
-    Write "thumbUpload.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });", nl
-    Write "thumbUpload.addEventListener('dragleave', function() { this.classList.remove('dragover'); });", nl
+    // Clic géré nativement par <label for="thumbFile"> — pas de JS nécessaire
+    Write "thumbUpload.addEventListener('dragenter', function(e) { e.preventDefault(); e.stopPropagation(); });", nl
+    Write "thumbUpload.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); this.classList.add('dragover'); });", nl
+    Write "thumbUpload.addEventListener('dragleave', function(e) { e.stopPropagation(); this.classList.remove('dragover'); });", nl
     Write "thumbUpload.addEventListener('drop', function(e) {", nl
-    Write "    e.preventDefault(); this.classList.remove('dragover');", nl
+    Write "    e.preventDefault(); e.stopPropagation(); this.classList.remove('dragover');", nl
     Write "    if (e.dataTransfer.files.length) handleThumbFile(e.dataTransfer.files[0]);", nl
     Write "});", nl
     Write "thumbFile.addEventListener('change', function() {", nl
@@ -518,7 +565,7 @@ ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = ""
     Write "    resizeW.value = origW; resizeH.value = origH;", nl
     Write "    resizeScale.value = 100; resizePercent.textContent = '100';", nl
     Write "    drawResizePreview(); applyResizedImage();", nl
-    Write "    resizePanel.querySelector('.resize-header span').textContent = '\u2699 Redimensionner l" _ $Char(39) _ "image';", nl
+    Write "    resizePanel.querySelector('.resize-header span').textContent = '\u2699 Redimensionner l\u0027image';", nl
     Write "});", nl
 
     // Vérification auth au chargement
@@ -537,13 +584,13 @@ ClassMethod DrawScripts(isEdit As %Boolean, article As Article.Data.Article = ""
     Write "    var author = document.getElementById('author').value.trim();", nl
     Write "    if (!title || !author) { alert('Titre et auteur sont obligatoires.'); return; }", nl
     Write "    if (!document.getElementById('thumbBase64').value) {", nl
-    Write "        alert('La photo d" _ $Char(39) _ "en-t\u00eate est obligatoire.');", nl
+    Write "        alert('La photo d\u0027en-t\u00eate est obligatoire.');", nl
     Write "        document.getElementById('thumbUpload').classList.add('thumb-error');", nl
     Write "        return;", nl
     Write "    }", nl
     Write "    var htmlContent = quill.root.innerHTML;", nl
     Write "    if (htmlContent === '<p><br></p>' || !htmlContent.trim()) {", nl
-    Write "        alert('Le contenu de l" _ $Char(39) _ "article est obligatoire.');", nl
+    Write "        alert('Le contenu de l\u0027article est obligatoire.');", nl
     Write "        return;", nl
     Write "    }", nl
 
@@ -658,7 +705,7 @@ ClassMethod DrawFormCSS()
 @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
 
 /* Vignette upload */
-.thumb-upload { cursor: pointer; }
+.thumb-upload { cursor: pointer; display: block; }
 .thumb-preview {
     width: 100%; min-height: 180px; max-height: 300px; border: 3px dashed #ccc; border-radius: 12px;
     display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -706,9 +753,15 @@ ClassMethod DrawFormCSS()
 
 /* Editeur Quill */
 #editor { min-height: 350px; background: #fff; border-radius: 0 0 8px 8px; font-size: 1rem; }
-.ql-toolbar { border-radius: 8px 8px 0 0 !important; background: #fafafa; }
+.ql-toolbar { border-radius: 8px 8px 0 0 !important; background: #fafafa; border-color: #e0e0e0 !important; }
 .ql-container { border-radius: 0 0 8px 8px !important; border-color: #e0e0e0 !important; }
-.ql-toolbar { border-color: #e0e0e0 !important; }
+.ql-editor { position: relative; }
+.ql-editor img { cursor: pointer; max-width: 100%; transition: outline 0.15s; }
+.ql-editor img:hover { outline: 1px dashed #0f3460; }
+/* Overlay de redimensionnement des images dans l'editeur */
+.editor-resize-overlay { position: absolute; border: 2px solid #0f3460; pointer-events: none; z-index: 10; box-sizing: border-box; }
+.editor-resize-handle { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; background: #0f3460; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; pointer-events: all; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.editor-resize-dims { position: absolute; bottom: 4px; left: 4px; background: rgba(15,52,96,0.85); color: #fff; padding: 1px 8px; border-radius: 3px; font-size: 11px; pointer-events: none; white-space: nowrap; }
 
 /* Boutons */
 .form-actions { display: flex; gap: 1rem; margin-top: 2rem; margin-bottom: 2rem; }

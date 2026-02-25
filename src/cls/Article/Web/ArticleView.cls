@@ -35,6 +35,7 @@ ClassMethod OnPage() As %Status
 
         Set article = ##class(Article.Data.Article).%OpenId(pId)
         Do ..DrawHead(article.Title)
+        Do ..DrawHeader(article.Title)
 
         // Hero / Vignette
         &html<<div class="hero">>
@@ -59,10 +60,14 @@ ClassMethod OnPage() As %Status
         Set urlList = ..Link("Article.Web.ArticleList.cls")
         Set urlEditParms("id") = pId
         Set urlEdit = ..Link("Article.Web.ArticleForm.cls", .urlEditParms)
+        Set titleJS = $Replace($ZConvert(article.Title, "O", "HTML"), "'", "&#39;")
         &html<<div class="container">
 <div class="view-actions">
 <a class="back" href="#(urlList)#">&#8592; Retour aux articles</a>
+<div>
 <a class="btn btn-edit auth-only" style="display:none;" href="#(urlEdit)#">&#9998; Modifier cet article</a>
+<button class="btn btn-delete auth-only" style="display:none;" onclick="deleteArticle('#(pId)#', '#(titleJS)#'); return false;">&#128465; Supprimer</button>
+</div>
 </div>
 <div class="content">>
         // Écrire le contenu HTML avec sanitisation basique (protection XSS)
@@ -71,6 +76,9 @@ ClassMethod OnPage() As %Status
             Do article.Content.Rewind()
             While 'article.Content.AtEnd {
                 Set chunk = article.Content.Read(32000)
+                // Décoder les octets UTF-8 stockés dans le stream GlobalCharacter
+                // (%Get("content",,"stream") retourne du UTF-8 brut, stocké tel quel)
+                Set chunk = $ZCONVERT(chunk, "I", "UTF8")
                 // Retirer les balises <script> et <iframe> (protection XSS)
                 Set chunk = ..SanitizeHtml(chunk)
                 Write chunk

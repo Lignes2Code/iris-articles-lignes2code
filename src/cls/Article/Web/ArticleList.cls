@@ -44,13 +44,13 @@ ClassMethod OnPage() As %Status
             Set statusHTML = $ZConvert(article.Status, "O", "HTML")
 
             &html<<div class="card">
-<div class="card-thumb">>
+<a href="#(viewURL)#" class="card-thumb">>
             If $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
                 Do article.Thumbnail.WriteImgTag()
             } Else {
                 &html<&#128196;>
             }
-            &html<</div>
+            &html<</a>
 <div class="card-body">
 <h2><a href="#(viewURL)#">#(titleHTML)#</a></h2>
 <div class="meta">
@@ -61,7 +61,8 @@ ClassMethod OnPage() As %Status
             If article.Category '= "" {
                 &html<<div class="meta"><span>&#128193; #($ZConvert(article.Category, "O", "HTML"))#</span></div>>
             }
-            &html<<div class="card-actions auth-only" style="display:none;"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a></div>>
+            Set titleJS = $Replace(titleHTML, "'", "&#39;")
+            &html<<div class="card-actions auth-only" style="display:none;"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a><button class="btn-card-delete" onclick="deleteArticle('#(id)#', '#(titleJS)#'); return false;">&#128465; Supprimer</button></div>>
             &html<</div>
 </div>>
         }

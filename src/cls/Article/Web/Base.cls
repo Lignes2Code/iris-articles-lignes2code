@@ -56,7 +56,7 @@ header nav a:hover { opacity: 1; text-decoration: underline; }
 /* Cards */
 .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-.card-thumb { width: 100%; height: 200px; background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #999; font-size: 3rem; }
+.card-thumb { width: 100%; height: 200px; background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #999; font-size: 3rem; text-decoration: none; cursor: pointer; }
 .card-thumb img { width: 100%; height: 200px; object-fit: contain; }
 .card-body { padding: 1.2rem; }
 .card-body h2 { font-size: 1.15rem; margin-bottom: 0.5rem; }
@@ -108,12 +108,62 @@ header nav a:hover { opacity: 1; text-decoration: underline; }
     font-weight: 600; font-size: 0.8rem; transition: all 0.2s;
 }
 .btn-card-edit:hover { background: #0f3460; color: #fff; }
+.btn-delete {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem;
+    background: linear-gradient(135deg, #c0392b, #96281b); color: #fff; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
+    border: none; cursor: pointer;
+}
+.btn-delete:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(192,57,43,0.3); }
+.btn-card-delete {
+    display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.8rem;
+    background: #fef0f0; color: #c0392b; border-radius: 6px; text-decoration: none;
+    font-weight: 600; font-size: 0.8rem; transition: all 0.2s; border: none; cursor: pointer;
+    margin-left: 0.5rem;
+}
+.btn-card-delete:hover { background: #c0392b; color: #fff; }
+/* Modal confirmation */
+.modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+    background: #fff; border-radius: 12px; padding: 2rem; max-width: 420px; width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2); text-align: center; animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-box h3 { margin-bottom: 0.8rem; color: #c0392b; font-size: 1.2rem; }
+.modal-box p { margin-bottom: 1.5rem; color: #555; font-size: 0.95rem; }
+.modal-actions { display: flex; gap: 1rem; justify-content: center; }
+.modal-actions .btn-cancel {
+    padding: 0.5rem 1.5rem; border-radius: 8px; border: 2px solid #ddd; background: #fff;
+    color: #555; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.modal-actions .btn-cancel:hover { border-color: #999; }
+.modal-actions .btn-confirm-delete {
+    padding: 0.5rem 1.5rem; border-radius: 8px; border: none;
+    background: linear-gradient(135deg, #c0392b, #96281b); color: #fff;
+    font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.modal-actions .btn-confirm-delete:hover { box-shadow: 0 4px 12px rgba(192,57,43,0.3); }
 .empty { text-align: center; padding: 3rem; color: #999; }
 .msg { text-align: center; }
 .msg h1 { font-size: 4rem; color: #ccc; }
 .msg p { color: #999; }
 .msg a { color: #0f3460; }
 footer { text-align: center; padding: 2rem; color: #999; font-size: 0.85rem; }
+/* Bouton remonter en haut */
+.btn-scroll-top {
+    display: none; position: fixed; bottom: 2rem; right: 2rem; z-index: 900;
+    width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #0f3460, #16213e); color: #fff;
+    font-size: 1.4rem; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    transition: opacity 0.3s, transform 0.3s;
+    align-items: center; justify-content: center;
+}
+.btn-scroll-top:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(15,52,96,0.4); }
+.btn-scroll-top.visible { display: flex; }
 </style>>
 }
 
@@ -172,13 +222,58 @@ function isAuthenticated() {
     return !!localStorage.getItem('jwt_token');
 }
 checkAuth();
+document.addEventListener('DOMContentLoaded', checkAuth);
+function deleteArticle(id, title) {
+    var overlay = document.getElementById('deleteModal');
+    if (!overlay) {
+        var div = document.createElement('div');
+        div.innerHTML = '<div class="modal-overlay" id="deleteModal"><div class="modal-box">'
+            + '<h3>&#9888; Supprimer cet article ?</h3>'
+            + '<p id="deleteModalText"></p>'
+            + '<div class="modal-actions">'
+            + '<button class="btn-cancel" onclick="closeDeleteModal()">Annuler</button>'
+            + '<button class="btn-confirm-delete" id="deleteConfirmBtn">Supprimer</button>'
+            + '</div></div></div>';
+        document.body.appendChild(div.firstChild);
+        overlay = document.getElementById('deleteModal');
+    }
+    document.getElementById('deleteModalText').textContent = 'L\'article "' + title + '" sera supprim\u00e9 d\u00e9finitivement.';
+    overlay.classList.add('active');
+    document.getElementById('deleteConfirmBtn').onclick = function() {
+        var token = localStorage.getItem('jwt_token');
+        fetch('/api/articles/articles/' + id, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            closeDeleteModal();
+            if (data.error) { alert('Erreur : ' + data.error); return; }
+            alert(data.message || 'Article supprim\u00e9');
+            window.location.href = document.querySelector('a[href*="ArticleList"]').href || '/';
+        }).catch(function(e) { closeDeleteModal(); alert('Erreur r\u00e9seau'); });
+    };
+}
+function closeDeleteModal() {
+    var overlay = document.getElementById('deleteModal');
+    if (overlay) overlay.classList.remove('active');
+}
 </script>>
 }
 
 /// Écrit le footer commun
 ClassMethod DrawFooter()
 {
-    &html<<footer>Articles &mdash; Lignes2Code &copy; #($Piece($ZDateTime($Horolog, 3), "-", 1))#</footer>
+    &html<<button class="btn-scroll-top" id="btnScrollTop" title="Remonter en haut" onclick="window.scrollTo({top:0,behavior:'smooth'});">&#8679;</button>
+<script>
+(function() {
+    var btn = document.getElementById('btnScrollTop');
+    if (!btn) return;
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 400) btn.classList.add('visible');
+        else btn.classList.remove('visible');
+    });
+})();
+</script>
+<footer>Articles &mdash; Lignes2Code &copy; #($Piece($ZDateTime($Horolog, 3), "-", 1))#</footer>
 </body>
 </html>>
 }
@@ -241,6 +336,64 @@ ClassMethod StripEventHandlers(pHtml As %String) As %String
     While $ListNext(events, ptr, event) {
         Set result = $Replace(result, " " _ event _ "=", " data-blocked-" _ event _ "=")
         Set result = $Replace(result, " " _ $ZConvert(event, "U") _ "=", " data-blocked-" _ event _ "=")
+    }
+    Return result
+}
+
+/// Convertit les caractères Unicode supplémentaires (emojis, etc.) en entités HTML numériques
+/// IRIS peut stocker les emojis soit comme codepoints directs (> 65535),
+/// soit comme paires de substitution UTF-16 (surrogate pairs).
+/// Dans les deux cas, le Write CSP ne les convertit pas correctement en UTF-8.
+/// Cette méthode les remplace par &#xHHHHH; que le navigateur rend correctement.
+ClassMethod FixEmoji(pStr As %String) As %String
+{
+    If pStr = "" Return ""
+    Set len = $Length(pStr)
+    Set result = ""
+    Set segStart = 1
+    Set i = 1
+    While i <= len {
+        Set c = $Ascii(pStr, i)
+        Set cp = 0
+        Set skip = 1
+        // Cas 1 : Codepoint direct > 65535 (plan supplémentaire)
+        // IRIS peut retourner le codepoint complet via $Ascii()
+        If c > 65535 {
+            Set cp = c
+            Set skip = 1
+        }
+        // Cas 2 : High surrogate (0xD800-0xDBFF) suivi de low surrogate (0xDC00-0xDFFF)
+        ElseIf (c >= 55296) && (c <= 56319) && (i < len) {
+            Set c2 = $Ascii(pStr, i + 1)
+            If (c2 >= 56320) && (c2 <= 57343) {
+                Set cp = ((c - 55296) * 1024) + (c2 - 56320) + 65536
+                Set skip = 2
+            }
+        }
+        If cp > 0 {
+            // Copier le texte avant le caractère emoji
+            If i > segStart {
+                Set result = result _ $Extract(pStr, segStart, i - 1)
+            }
+            // Convertir le codepoint en hexadécimal
+            Set hex = ""
+            Set n = cp
+            While n > 0 {
+                Set hex = $Extract("0123456789ABCDEF", (n # 16) + 1) _ hex
+                Set n = n \ 16
+            }
+            Set result = result _ "&#x" _ hex _ ";"
+            Set i = i + skip
+            Set segStart = i
+            Continue
+        }
+        Set i = i + 1
+    }
+    // Si aucun emoji trouvé, retourner la chaîne originale
+    If segStart = 1 Return pStr
+    // Copier le segment restant
+    If segStart <= len {
+        Set result = result _ $Extract(pStr, segStart, len)
     }
     Return result
 }
