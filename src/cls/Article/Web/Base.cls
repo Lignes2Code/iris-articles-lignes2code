@@ -81,6 +81,25 @@ header nav a:hover { opacity: 1; text-decoration: underline; }
 .content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0; }
 .content h1, .content h2, .content h3 { margin: 1.2rem 0 0.6rem; color: #0f3460; }
 .content p { margin-bottom: 1rem; }
+/* Quill.js content classes (alignement, indentation, listes, etc.) */
+.content .ql-align-center { text-align: center; }
+.content .ql-align-right { text-align: right; }
+.content .ql-align-justify { text-align: justify; }
+.content .ql-indent-1 { padding-left: 3em; }
+.content .ql-indent-2 { padding-left: 6em; }
+.content .ql-indent-3 { padding-left: 9em; }
+.content .ql-indent-4 { padding-left: 12em; }
+.content .ql-indent-5 { padding-left: 15em; }
+.content .ql-indent-6 { padding-left: 18em; }
+.content .ql-indent-7 { padding-left: 21em; }
+.content .ql-indent-8 { padding-left: 24em; }
+.content blockquote { border-left: 4px solid #0f3460; margin: 1rem 0; padding: 0.5rem 1rem; color: #555; background: #f8f9fa; }
+.content pre.ql-syntax { background: #1a1a2e; color: #e0e0e0; padding: 1rem; border-radius: 8px; overflow-x: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; margin: 1rem 0; }
+.content .ql-size-small { font-size: 0.75em; }
+.content .ql-size-large { font-size: 1.5em; }
+.content .ql-size-huge { font-size: 2.5em; }
+.content .ql-font-serif { font-family: Georgia, 'Times New Roman', serif; }
+.content .ql-font-monospace { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
 /* Gallery */
 .gallery { margin-top: 2rem; }
 .gallery h3 { margin-bottom: 1rem; color: #0f3460; font-size: 1.2rem; }
