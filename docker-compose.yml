@@ -12,6 +12,9 @@ services:
     volumes:
       # Dossier data unique (input + output sur le même filesystem pour le rename)
       - ./data:/home/irisowner/data
+    environment:
+      # the durable %SYS directory
+      - ISC_DATA_DIRECTORY=/dur/iris_conf.d
     cap_add:
       - IPC_LOCK
     restart: unless-stopped
