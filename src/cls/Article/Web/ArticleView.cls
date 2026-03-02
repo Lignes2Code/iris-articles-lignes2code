@@ -34,23 +34,28 @@ ClassMethod OnPage() As %Status
         }
 
         Set article = ##class(Article.Data.Article).%OpenId(pId)
-        Do ..DrawHead(article.Title)
-        Do ..DrawHeader(article.Title)
+        // Lire les streams une seule fois (décodage UTF-8 car stocké en octets bruts)
+        Do article.Title.Rewind() Set titleText = $ZCONVERT(article.Title.Read(), "I", "UTF8")
+        Do article.Author.Rewind() Set authorText = $ZCONVERT(article.Author.Read(), "I", "UTF8")
+        Do article.Category.Rewind() Set categoryText = $ZCONVERT(article.Category.Read(), "I", "UTF8")
+        
+        Do ..DrawHead(titleText)
+        Do ..DrawHeader(titleText)
 
         // Hero / Vignette
         &html<<div class="hero">>
         If $IsObject(article.Thumbnail) && (article.Thumbnail.Base64Data.Size > 0) {
             Write "<img "
-            Write "alt=""" _ $ZConvert(article.Title, "O", "HTML") _ """ "
+            Write "alt=""" _ $ZConvert(titleText, "O", "HTML") _ """ "
             Write "src="""
             Do article.Thumbnail.WriteDataURI()
             Write """ />"
         }
         Set badgeClass = "badge-" _ article.Status
         &html<<div class="hero-overlay">
-<h1>#($ZConvert(article.Title, "O", "HTML"))#</h1>
+<h1>#($ZConvert(titleText, "O", "HTML"))#</h1>
 <div class="meta">
-<span>&#9998; #($ZConvert(article.Author, "O", "HTML"))#</span>
+<span>&#9998; #($ZConvert(authorText, "O", "HTML"))#</span>
 <span>&#128197; #($Piece(article.DateCreated, " ", 1))#</span>
 <span class="badge #(badgeClass)#">#($ZConvert(article.Status, "O", "HTML"))#</span>
 </div>
@@ -60,7 +65,7 @@ ClassMethod OnPage() As %Status
         Set urlList = ..Link("Article.Web.ArticleList.cls")
         Set urlEditParms("id") = pId
         Set urlEdit = ..Link("Article.Web.ArticleForm.cls", .urlEditParms)
-        Set titleJS = $Replace($ZConvert(article.Title, "O", "HTML"), "'", "&#39;")
+        Set titleJS = $Replace($ZConvert(titleText, "O", "HTML"), "'", "&#39;")
         &html<<div class="container">
 <div class="view-actions">
 <a class="back" href="#(urlList)#">&#8592; Retour aux articles</a>
@@ -108,7 +113,7 @@ ClassMethod OnPage() As %Status
 <h3>&#128203; Informations</h3>
 <table class="info-table">
 <tr><td>ID</td><td>#(pId)#</td></tr>
-<tr><td>Cat&eacute;gorie</td><td>#($ZConvert(article.Category, "O", "HTML"))#</td></tr>
+<tr><td>Cat&eacute;gorie</td><td>#($ZConvert(categoryText, "O", "HTML"))#</td></tr>
 <tr><td>Source</td><td>#($ZConvert(article.Source, "O", "HTML"))#</td></tr>
 <tr><td>Cr&eacute;&eacute; le</td><td>#(article.DateCreated)#</td></tr>>
         If article.DateModified '= "" {

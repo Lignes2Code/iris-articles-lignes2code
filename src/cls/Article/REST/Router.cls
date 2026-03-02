@@ -290,11 +290,10 @@ ClassMethod ExecuteArticleQuery(pWhereField As %String = "", pWhereValue As %Str
             
             Set articleObj = ##class(Article.Data.Article).%OpenId(rs2.%Get("ID"))
             If $IsObject(articleObj) {
-                Set exportSc = articleObj.%JSONExportToString(.jsonStr, "ListReference")
-                If $$$ISOK(exportSc) {
-                    Do articles.%Push({}.%FromJSON(jsonStr))
-                    Set collected = collected + 1
-                }
+                // Utiliser ToListJSON() pour sérialiser correctement les streams
+                Set jsonObj = articleObj.ToListJSON()
+                Do articles.%Push(jsonObj)
+                Set collected = collected + 1
             }
         }
         

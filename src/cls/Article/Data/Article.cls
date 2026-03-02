@@ -3,17 +3,17 @@
 Class Article.Data.Article Extends (%Persistent, %JSON.Adaptor, %Populate)
 {
 
-/// Titre de l'article
-Property Title As %String(MAXLEN = 500) [ Required ];
+/// Titre de l'article (stream pour support UTF-8 complet : accents, emoji, caractères spéciaux)
+Property Title As %Stream.GlobalCharacter [ Required ];
 
 /// Contenu de l'article (texte enrichi HTML, stream pour supporter les images base64 inline volumineuses)
 Property Content As %Stream.GlobalCharacter;
 
-/// Auteur de l'article
-Property Author As %String(MAXLEN = 200);
+/// Auteur de l'article (stream pour support UTF-8)
+Property Author As %Stream.GlobalCharacter;
 
-/// Catégorie de l'article
-Property Category As %String(MAXLEN = 100);
+/// Catégorie de l'article (stream pour support UTF-8)
+Property Category As %Stream.GlobalCharacter;
 
 /// Date de création
 Property DateCreated As %TimeStamp [ InitialExpression = {$ZDateTime($Horolog, 3)} ];
@@ -75,14 +75,38 @@ XData ListReference [ XMLNamespace = "http://www.intersystems.com/jsonmapping" ]
 }
 
 /// Import stream-safe depuis un %DynamicObject (évite MAXSTRING avec %JSONImport)
-/// Utilise %Get(key,,"stream") pour content et les données base64 des images
+/// Utilise %Get(key,,"stream") pour tous les champs avec UTF-8 : title, author, category, content
 Method ImportFromDynObj(pJson As %DynamicObject) As %Status
 {
     Set sc = $$$OK
     Try {
-        If pJson.%IsDefined("title") Set ..Title = pJson.%Get("title")
-        If pJson.%IsDefined("author") Set ..Author = pJson.%Get("author")
-        If pJson.%IsDefined("category") Set ..Category = pJson.%Get("category")
+        // Title comme stream (supp rte UTF-8 complet : accents, emoji, etc.)
+        If pJson.%IsDefined("title") {
+            Set titleStream = pJson.%Get("title",,"stream")
+            If $IsObject(titleStream) {
+                Do titleStream.Rewind()
+                Do ..Title.CopyFrom(titleStream)
+            }
+        }
+        
+        // Author comme stream (support UTF-8)
+        If pJson.%IsDefined("author") {
+            Set authorStream = pJson.%Get("author",,"stream")
+            If $IsObject(authorStream) {
+                Do authorStream.Rewind()
+                Do ..Author.CopyFrom(authorStream)
+            }
+        }
+        
+        // Category comme stream (support UTF-8)
+        If pJson.%IsDefined("category") {
+            Set categoryStream = pJson.%Get("category",,"stream")
+            If $IsObject(categoryStream) {
+                Do categoryStream.Rewind()
+                Do ..Category.CopyFrom(categoryStream)
+            }
+        }
+        
         If pJson.%IsDefined("status") Set ..Status = pJson.%Get("status")
         If pJson.%IsDefined("source") Set ..Source = pJson.%Get("source")
         
@@ -140,6 +164,31 @@ Method ImportFromDynObj(pJson As %DynamicObject) As %Status
     Return sc
 }
 
+/// Retourne un %DynamicObject avec les valeurs des streams (pour listes, sans content/images)
+/// Utilisé par l'API REST pour une sérialisation correcte des streams
+Method ToListJSON() As %DynamicObject
+{
+    Set json = {}
+    Set json.id = ..%Id()
+    
+    // Lire les streams avec décodage UTF-8 (stockés en octets UTF-8 bruts)
+    Do ..Title.Rewind()
+    Set json.title = $ZCONVERT(..Title.Read(), "I", "UTF8")
+    
+    Do ..Author.Rewind()
+    Set json.author = $ZCONVERT(..Author.Read(), "I", "UTF8")
+    
+    Do ..Category.Rewind()
+    Set json.category = $ZCONVERT(..Category.Read(), "I", "UTF8")
+    
+    Set json.dateCreated = ..DateCreated
+    Set json.dateModified = ..DateModified
+    Set json.status = ..Status
+    Set json.source = ..Source
+    
+    Return json
+}
+
 /// Index sur le titre
 Index TitleIdx On Title;
 
@@ -184,6 +233,9 @@ Storage Default
 </Value>
 <Value name="11">
 <Value>Images</Value>
+</Value>
+<Value name="12">
+<Value>Content</Value>
 </Value>
 </Data>
 <DataLocation>^Article.Data.ArticleD</DataLocation>

@@ -37,10 +37,10 @@ ClassMethod OnPage() As %Status
             Set viewURL = ..Link("Article.Web.ArticleView.cls", .urlParms)
             Set editURL = ..Link("Article.Web.ArticleForm.cls", .urlParms)
 
-            // Préparer les valeurs HTML-safe
+            // Préparer les valeurs HTML-safe (décodage UTF-8 car stocké en octets bruts)
             Set badgeClass = "badge-" _ article.Status
-            Set titleHTML = $ZConvert(article.Title, "O", "HTML")
-            Set authorHTML = $ZConvert(article.Author, "O", "HTML")
+            Do article.Title.Rewind() Set titleHTML = $ZConvert($ZCONVERT(article.Title.Read(), "I", "UTF8"), "O", "HTML")
+            Do article.Author.Rewind() Set authorHTML = $ZConvert($ZCONVERT(article.Author.Read(), "I", "UTF8"), "O", "HTML")
             Set statusHTML = $ZConvert(article.Status, "O", "HTML")
 
             &html<<div class="card">
@@ -58,8 +58,9 @@ ClassMethod OnPage() As %Status
 <span>&#128197; #($Piece(article.DateCreated, " ", 1))#</span>
 <span class="badge #(badgeClass)#">#(statusHTML)#</span>
 </div>>
-            If article.Category '= "" {
-                &html<<div class="meta"><span>&#128193; #($ZConvert(article.Category, "O", "HTML"))#</span></div>>
+            If article.Category.Size > 0 {
+                Do article.Category.Rewind()
+                &html<<div class="meta"><span>&#128193; #($ZConvert($ZCONVERT(article.Category.Read(), "I", "UTF8"), "O", "HTML"))#</span></div>>
             }
             Set titleJS = $Replace(titleHTML, "'", "&#39;")
             &html<<div class="card-actions auth-only" style="display:none;"><a href="#(editURL)#" class="btn-card-edit">&#9998; Modifier</a><button class="btn-card-delete" onclick="deleteArticle('#(id)#', '#(titleJS)#'); return false;">&#128465; Supprimer</button></div>>

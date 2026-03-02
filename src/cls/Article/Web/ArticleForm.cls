@@ -35,9 +35,16 @@ ClassMethod OnPage() As %Status
         If isEdit {
             Set article = ##class(Article.Data.Article).%OpenId(editId)
             Set pageTitle = "Modifier l'article"
+            // Lire les streams une seule fois (décodage UTF-8 car stocké en octets bruts)
+            Do article.Title.Rewind() Set articleTitle = $ZCONVERT(article.Title.Read(), "I", "UTF8")
+            Do article.Author.Rewind() Set articleAuthor = $ZCONVERT(article.Author.Read(), "I", "UTF8")
+            Do article.Category.Rewind() Set articleCategory = $ZCONVERT(article.Category.Read(), "I", "UTF8")
         } Else {
             Set article = ""
             Set pageTitle = "Nouvel article"
+            Set articleTitle = ""
+            Set articleAuthor = ""
+            Set articleCategory = ""
         }
 
         // Affichage du formulaire (GET)
@@ -55,9 +62,9 @@ ClassMethod OnPage() As %Status
         }
 
         // Pré-remplir les valeurs
-        Set valTitle = $Select(isEdit: $ZConvert(article.Title, "O", "HTML"), 1: "")
-        Set valAuthor = $Select(isEdit: $ZConvert(article.Author, "O", "HTML"), 1: "")
-        Set valCategory = $Select(isEdit: $ZConvert(article.Category, "O", "HTML"), 1: "")
+        Set valTitle = $ZConvert(articleTitle, "O", "HTML")
+        Set valAuthor = $ZConvert(articleAuthor, "O", "HTML")
+        Set valCategory = $ZConvert(articleCategory, "O", "HTML")
         Set valStatus = $Select(isEdit: article.Status, 1: "draft")
 
         &html<
