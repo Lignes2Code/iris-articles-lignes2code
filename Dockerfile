@@ -18,6 +18,7 @@ RUN apt-get update && apt-get -y upgrade \
 RUN mkdir -p /dur/iris_conf.d/ && \
     chown -R ${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} /dur/iris_conf.d/ && \
     chmod -R 775 /dur/iris_conf.d/
+    
 USER 51773
 
 # Copier les sources et la configuration
