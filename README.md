@@ -65,10 +65,10 @@ docker compose ps
 
 | Outil | URL | Identifiants |
 |-------|-----|-------------|
-| **Management Portal** | http://localhost:52773/csp/sys/UtilHome.csp | `_SYSTEM` / `SYS` |
-| **WebTerminal** | http://localhost:52773/terminal/ | `_SYSTEM` / `SYS` |
-| **API REST Health** | http://localhost:52773/api/articles/health | - |
-| **Pages Articles (CSP)** | http://localhost:52773/web/articles/Article.Web.ArticleList.cls | - |
+| **Management Portal** | http://127.0.0.1:52773/csp/sys/UtilHome.csp | `_SYSTEM` / `SYS` |
+| **WebTerminal** | http://127.0.0.1:52773/terminal/ | `_SYSTEM` / `SYS` |
+| **API REST Health** | http://127.0.0.1:52773/api/articles/health | - |
+| **Pages Articles (CSP)** | http://127.0.0.1:52773/web/articles/Article.Web.ArticleList.cls | - |
 
 > **Note :** Au premier accès, IRIS demandera de changer le mot de passe par défaut (`SYS`).
 
@@ -130,21 +130,21 @@ Les routes de listing supportent la pagination via paramètres query :
 
 ```bash
 # Vérifier la santé du service
-curl http://localhost:52773/api/articles/health
+curl http://127.0.0.1:52773/api/articles/health
 
 # Se connecter et obtenir un token JWT
-curl -X POST http://localhost:52773/api/articles/auth/login \
+curl -X POST http://127.0.0.1:52773/api/articles/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "_SYSTEM", "password": "SYS"}'
 # Réponse : {"token":"eyJ...", "username":"_SYSTEM", "roles":"%All", "expiresIn":3600}
 
 # Stocker le token dans une variable
-TOKEN=$(curl -s -X POST http://localhost:52773/api/articles/auth/login \
+TOKEN=$(curl -s -X POST http://127.0.0.1:52773/api/articles/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "_SYSTEM", "password": "SYS"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
 # Créer un article (authentifié)
-curl -X POST http://localhost:52773/api/articles/articles \
+curl -X POST http://127.0.0.1:52773/api/articles/articles \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -156,13 +156,13 @@ curl -X POST http://localhost:52773/api/articles/articles \
   }'
 
 # Lister les articles (public, paginé)
-curl "http://localhost:52773/api/articles/articles?page=1&pageSize=10"
+curl "http://127.0.0.1:52773/api/articles/articles?page=1&pageSize=10"
 
 # Récupérer un article par ID (public)
-curl http://localhost:52773/api/articles/articles/1
+curl http://127.0.0.1:52773/api/articles/articles/1
 
 # Modifier un article (authentifié)
-curl -X PUT http://localhost:52773/api/articles/articles/1 \
+curl -X PUT http://127.0.0.1:52773/api/articles/articles/1 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -171,11 +171,11 @@ curl -X PUT http://localhost:52773/api/articles/articles/1 \
   }'
 
 # Supprimer un article (authentifié)
-curl -X DELETE http://localhost:52773/api/articles/articles/1 \
+curl -X DELETE http://127.0.0.1:52773/api/articles/articles/1 \
   -H "Authorization: Bearer $TOKEN"
 
 # Voir les infos de l'utilisateur connecté
-curl http://localhost:52773/api/articles/auth/me \
+curl http://127.0.0.1:52773/api/articles/auth/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -231,7 +231,7 @@ Les fichiers traités sont automatiquement archivés dans `data/output/`.
 
 ### Supervision via le Management Portal
 
-1. Aller sur http://localhost:52773/csp/sys/UtilHome.csp
+1. Aller sur http://127.0.0.1:52773/csp/sys/UtilHome.csp
 2. Naviguer vers **Interoperability** > **Configurer** > **Production**
 3. Sélectionner le namespace **USER**
 4. La production `Article.Production.ArticleProduction` s'affiche

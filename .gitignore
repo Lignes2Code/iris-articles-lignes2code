@@ -18,3 +18,4 @@ data/output/*.json
 # OS
 .DS_Store
 Thumbs.db
+retrospective.md
