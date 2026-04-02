@@ -3,19 +3,46 @@ data/durable/
 
 # Fichiers traités
 data/output/*.json
+data/output/
 
 # Ne pas ignorer les exemples
 !data/sample-*.json
 
+# Sécurité
+*.key
+*.pem
+*.p12
+*.cer
+*.crt
+*.env
+*.secret
+.env.*
+config/production.cpf
+secret*
+
 # Git
 .git/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
 
 # IDE
 .vscode/settings.json
 *.swp
 *~
+.idea/
 
 # OS
 .DS_Store
 Thumbs.db
 retrospective.md
+
+# Logs et debug
+*.log
+debug.txt
+
+# Backup
+*.bak
+*.backup
+*.old

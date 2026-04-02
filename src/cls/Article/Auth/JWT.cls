@@ -4,8 +4,9 @@ Class Article.Auth.JWT [ Abstract ]
 {
 
 /// Clé secrète pour signer les tokens
-/// À changer en production (variable d'environnement recommandée)
-Parameter SECRET = "iris-articles-l2c-jwt-secret-2026-change-me-in-production";
+/// ⚠️ IMPORTANT : Changez cette valeur en production !
+/// Recommandation : Utilisez une variable d'environnement 
+Parameter SECRET = "CHANGE_ME_IN_PRODUCTION_USE_ENV_VAR";
 
 /// Durée de vie du token en secondes (1 heure)
 Parameter EXPIRATION = 3600;
