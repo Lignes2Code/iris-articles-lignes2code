@@ -3,6 +3,12 @@
 Class Article.Process.ArticleBusinessProcess Extends Ens.BusinessProcess
 {
 
+/// Point d'entrée obligatoire Ens.BusinessProcess - dispatch vers ProcessArticleRequest
+Method OnRequest(pRequest As Article.Message.ArticleRequest, Output pResponse As Article.Message.ArticleResponse) As %Status
+{
+    Return ..ProcessArticleRequest(pRequest, .pResponse)
+}
+
 /// Point d'entrée du processus depuis FileService
 Method ProcessArticleRequest(pRequest As Article.Message.ArticleRequest, Output pResponse As Article.Message.ArticleResponse) As %Status
 {
@@ -70,20 +76,20 @@ Method EnrichArticleData(pRequest As Article.Message.ArticleRequest) As Article.
         
         If $IsObject(jsonData) {
             // Si c'est un objet unique
-            If jsonData.%GetTypeOf() = "object" {
+            If jsonData.%IsA("%DynamicObject") {
                 Do ..EnrichSingleArticle(jsonData)
                 
-                // Réécrire le JSON enrichi
+                // Réécrire le JSON enrichi (stream pour éviter MAXSTRING)
                 Do enrichedReq.JSONData.Clear()
-                Do enrichedReq.JSONData.Write(jsonData.%ToJSON())
+                Do jsonData.%ToJSON(enrichedReq.JSONData)
                 
-            } ElseIf jsonData.%GetTypeOf() = "array" {
+            } ElseIf jsonData.%IsA("%DynamicArray") {
                 // Si c'est un array d'articles
                 Do ..EnrichArticleArray(jsonData)
                 
-                // Réécrire le JSON enrichi
+                // Réécrire le JSON enrichi (stream pour éviter MAXSTRING)
                 Do enrichedReq.JSONData.Clear() 
-                Do enrichedReq.JSONData.Write(jsonData.%ToJSON())
+                Do jsonData.%ToJSON(enrichedReq.JSONData)
             }
         }
         
