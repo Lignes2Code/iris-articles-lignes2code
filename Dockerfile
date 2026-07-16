@@ -24,6 +24,7 @@ USER 51773
 # Copier les sources et la configuration
 COPY --chown=51773:51773 src/cls/ /home/irisowner/src/cls/
 COPY --chown=51773:51773 src/iris-init.script /home/irisowner/iris-init.script
+COPY --chown=51773:51773 src/create-admin-user.script /home/irisowner/create-admin-user.script
 COPY --chown=51773:51773 config/merge.cpf /home/irisowner/merge.cpf
 COPY  --chown=51773:51773 config/WebTerminal-v4.9.5.xml /tmp/WebTerminal-v4.9.5.xml
 

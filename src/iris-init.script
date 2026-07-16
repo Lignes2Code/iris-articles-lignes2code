@@ -68,9 +68,36 @@ zn "USER"
 // Charger et compiler toutes les classes ObjectScript
 do $system.OBJ.LoadDir("/home/irisowner/src/cls/", "ck", .err, 1)
 
-// L'authentification utilise les utilisateurs IRIS natifs (_SYSTEM, etc.)
-// Pas besoin de créer d'utilisateur applicatif séparé.
-Write "Authentification JWT configurée (utilisateurs IRIS natifs)",!
+// Retourner vers %SYS pour créer l'utilisateur admin personnalisé
+zn "%SYS"
+Write "Création de l'utilisateur admin personnalisé...",!
+set user = ##class(Security.Users).%New()
+set user.Name = "admin"
+set user.Namespace = "USER"
+set user.Routine = "USER"
+set user.Roles = "%All"
+set user.Enabled = 1
+set user.PasswordNeverExpires = 1
+set user.Comment = "Custom admin user - Articles Lignes2Code"
+do user.PasswordSet("SecurePass123!")
+set status = user.%Save()
+if $$$ISOK(status) {
+    write "SUCCESS: Utilisateur admin créé avec succès",!
+} else {
+    write "ERROR: Échec création admin: ",$system.Status.GetErrorText(status),!
+}
+// Vérifier que l'utilisateur existe
+if ##class(Security.Users).Exists("admin") {
+    write "VERIFICATION: Utilisateur admin confirmé dans la base",!
+} else {
+    write "ERROR: Utilisateur admin non trouvé après création",!
+}
+
+// Revenir au namespace USER 
+zn "USER"
+
+// L'authentification utilise désormais l'utilisateur admin personnalisé
+Write "Authentification JWT configurée (utilisateur admin personnalisé créé)",!
 
 // Démarrer la production d'interopérabilité
 do ##class(Ens.Director).StartProduction("Article.Production.ArticleProduction")

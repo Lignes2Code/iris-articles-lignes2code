@@ -1,8 +1,8 @@
 [Actions]
 
-; Configuration simplifiée - création d'utilisateur via ObjectScript
-; L'utilisateur admin est créé via le script iris-init.script
-; car la propriété Password n'est pas modifiable directement via CPF
+; Création d'un utilisateur admin personnalisé (généré automatiquement)
+ModifyUser:Name={{IRIS_ADMIN_USER}},PasswordHash={{IRIS_ADMIN_PASSWORD_HASH}},10000,SHA512,Roles={{IRIS_ADMIN_ROLES}}
+; Mot de passe défini dans .env, hash généré automatiquement lors du déploiement
 
 ; Activer l'interopérabilité dans le namespace USER
 ModifyNamespace:Name=USER,Globals=USER,Routines=USER,Interop=1

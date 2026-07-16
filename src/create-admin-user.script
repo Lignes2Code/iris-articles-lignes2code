@@ -1,0 +1,42 @@
+; Script IRIS pour créer l'utilisateur admin
+; Utilise l'API native ObjectScript pour la création d'utilisateurs
+
+; Basculer vers le namespace %SYS pour la gestion des utilisateurs
+ZN "%SYS"
+
+; Créer l'utilisateur admin
+set user = ##class(Security.Users).%New()
+set user.Name = "admin"
+set user.Namespace = "USER"
+set user.Routine = "USER"
+set user.Roles = "%All"
+set user.Enabled = 1
+set user.PasswordNeverExpires = 1
+set user.Comment = "Custom admin user created by deployment"
+
+; Définir le mot de passe
+do user.PasswordSet("SecurePass123!")
+
+; Sauvegarder l'utilisateur
+set status = user.%Save()
+if $$$ISOK(status) {
+    write "SUCCESS: Utilisateur admin créé avec succès",!
+} else {
+    write "ERROR: Échec de la création de l'utilisateur: ",$system.Status.GetErrorText(status),!
+    quit 1
+}
+
+; Vérifier que l'utilisateur existe
+set exists = ##class(Security.Users).Exists("admin")
+if exists {
+    write "VERIFICATION: Utilisateur admin confirmé dans la base",!
+} else {
+    write "ERROR: Utilisateur admin non trouvé après création",!
+    quit 1
+}
+
+; Basculer vers USER namespace
+ZN "USER"
+
+write "INFO: Configuration utilisateur terminée",!
+quit 0
